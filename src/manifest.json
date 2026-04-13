@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "Fuzzy Translate",
+  "version": "1.0.0",
+  "description": "沉浸式网页翻译，支持自定义 AI 模型 API",
+  "permissions": ["activeTab", "storage", "alarms"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "src/background/sw.ts",
+    "type": "module"
+  },
+  "content_scripts": [{
+    "matches": ["<all_urls>"],
+    "js": ["src/content/index.ts"],
+    "css": ["src/content/styles/content.css"]
+  }],
+  "action": {
+    "default_popup": "src/popup/index.html",
+    "default_icon": {
+      "16": "public/icons/icon-16.png",
+      "48": "public/icons/icon-48.png",
+      "128": "public/icons/icon-128.png"
+    }
+  },
+  "options_ui": {
+    "page": "src/options/index.html",
+    "open_in_tab": true
+  },
+  "icons": {
+    "16": "public/icons/icon-16.png",
+    "48": "public/icons/icon-48.png",
+    "128": "public/icons/icon-128.png"
+  },
+  "web_accessible_resources": [{
+    "resources": ["public/icons/logo-fab.png"],
+    "matches": ["<all_urls>"]
+  }],
+  "commands": {
+    "translate-page": {
+      "suggested_key": { "default": "Alt+T" },
+      "description": "翻译当前页面"
+    }
+  }
+}

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fuzzy Translate - 设置</title>
+  <style>
+    body { max-width: 640px; margin: 40px auto; padding: 0 20px; font-family: system-ui, sans-serif; color: #333; }
+    h1 { font-size: 24px; margin-bottom: 24px; }
+    h2 { font-size: 18px; margin-top: 32px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+    .form-group { margin-bottom: 16px; }
+    label { display: block; margin-bottom: 4px; font-weight: 500; font-size: 14px; }
+    .hint { font-size: 12px; color: #888; margin-top: 2px; }
+    input, select, textarea { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; box-sizing: border-box; font-family: system-ui, sans-serif; }
+    textarea { resize: vertical; line-height: 1.5; }
+    button { padding: 8px 16px; border-radius: 6px; border: 1px solid #ddd; cursor: pointer; font-size: 13px; background: #fff; }
+    button.primary { background: #4A90D9; color: white; border-color: #4A90D9; }
+    button.primary:hover { background: #357ABD; }
+    button.danger { color: #ef4444; border-color: #ef4444; }
+    button.danger:hover { background: #fef2f2; }
+    button.small { padding: 4px 10px; font-size: 12px; }
+    .btn-group { display: flex; gap: 8px; margin-top: 24px; align-items: center; }
+    .success { color: #22c55e; font-size: 14px; }
+    .error { color: #ef4444; font-size: 14px; }
+
+    /* Provider card */
+    .provider-card { border: 1px solid #ddd; border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
+    .provider-card.active { border-color: #4A90D9; }
+    .provider-header { display: flex; align-items: center; gap: 8px; padding: 12px 14px; cursor: pointer; background: #fafafa; }
+    .provider-header:hover { background: #f0f0f0; }
+    .provider-name { font-weight: 600; flex: 1; }
+    .provider-endpoint { font-size: 12px; color: #888; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .provider-badge { font-size: 11px; background: #4A90D9; color: #fff; padding: 1px 8px; border-radius: 10px; }
+    .provider-actions { display: flex; gap: 4px; }
+    .provider-body { padding: 0 14px 14px; border-top: 1px solid #eee; }
+
+    /* Model chips inside provider */
+    .model-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .model-chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; border: 1px solid #ddd; border-radius: 16px; font-size: 13px; cursor: pointer; transition: all 0.15s; }
+    .model-chip:hover { border-color: #aaa; }
+    .model-chip.active { background: #4A90D9; color: #fff; border-color: #4A90D9; }
+    .model-chip .del { font-size: 11px; opacity: 0.5; margin-left: 2px; cursor: pointer; }
+    .model-chip .del:hover { opacity: 1; }
+    .add-model-inline { display: inline-flex; align-items: center; gap: 4px; }
+    .add-model-inline input { width: 140px; padding: 4px 8px; font-size: 13px; border-radius: 16px; }
+    .add-model-inline button { padding: 4px 10px; border-radius: 16px; font-size: 12px; }
+
+    /* Provider form */
+    .provider-form { border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin-bottom: 12px; background: #fafafa; }
+    .provider-form h3 { margin: 0 0 12px; font-size: 15px; }
+    .provider-form .row { display: flex; gap: 8px; }
+    .provider-form .row > * { flex: 1; }
+  </style>
+</head>
+<body>
+  <h1>Fuzzy Translate 设置</h1>
+
+  <h2>API 服务商 & 模型</h2>
+  <div id="providerList"></div>
+  <button id="addProviderBtn" class="small">＋ 添加服务商</button>
+
+  <div id="providerForm" class="provider-form" style="display:none">
+    <h3 id="pfTitle">添加服务商</h3>
+    <input type="hidden" id="pfId">
+    <div class="form-group">
+      <label for="pfName">服务商名称</label>
+      <input type="text" id="pfName" placeholder="例如：OpenAI、DeepSeek、Ollama">
+    </div>
+    <div class="form-group">
+      <label for="pfEndpoint">API Endpoint</label>
+      <input type="text" id="pfEndpoint" placeholder="https://api.openai.com/v1">
+    </div>
+    <div class="form-group">
+      <label for="pfApiKey">API Key</label>
+      <input type="password" id="pfApiKey" placeholder="sk-...">
+      <div class="hint">仅存本机，不同步到云端</div>
+    </div>
+    <div class="btn-group" style="margin-top:12px">
+      <button id="testProviderBtn" class="small">测试连接</button>
+      <span id="testProviderResult"></span>
+      <div style="flex:1"></div>
+      <button id="cancelProviderBtn" class="small">取消</button>
+      <button id="saveProviderBtn" class="small primary">保存</button>
+    </div>
+  </div>
+
+  <h2>翻译偏好</h2>
+  <div class="form-group">
+    <label for="targetLang">目标语言</label>
+    <select id="targetLang">
+      <option value="zh-CN">简体中文</option>
+      <option value="zh-TW">繁体中文</option>
+      <option value="en">English</option>
+      <option value="ja">日本語</option>
+      <option value="ko">한국어</option>
+      <option value="fr">Français</option>
+      <option value="de">Deutsch</option>
+      <option value="es">Español</option>
+      <option value="ru">Русский</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label for="cacheExpiry">缓存过期时间（小时）</label>
+    <input type="number" id="cacheExpiry" min="1" max="8760" value="168">
+  </div>
+  <div class="form-group">
+    <label for="maxConcurrency">并发翻译数量: <span id="concurrencyValue">3</span></label>
+    <input type="range" id="maxConcurrency" min="1" max="10" value="3">
+    <div class="hint">数值越大速度越快，但可能触发 API 速率限制</div>
+  </div>
+  <div class="form-group">
+    <label for="hoverKey">悬浮翻译快捷键</label>
+    <select id="hoverKey">
+      <option value="Control">Ctrl</option>
+      <option value="Alt">Alt</option>
+      <option value="Shift">Shift</option>
+      <option value="Meta">Meta (⌘/Win)</option>
+    </select>
+    <div class="hint">开启悬浮翻译后，按此键触发翻译</div>
+  </div>
+  <div class="form-group">
+    <label for="fabSize">悬浮球大小</label>
+    <select id="fabSize">
+      <option value="small">小</option>
+      <option value="medium" selected>中</option>
+      <option value="large">大</option>
+    </select>
+  </div>
+
+  <h2>Prompt 设置</h2>
+  <div class="form-group">
+    <label for="systemPrompt">System Prompt</label>
+    <textarea id="systemPrompt" rows="3" placeholder="系统提示词"></textarea>
+    <div class="hint">可用变量: {sourceLang} {targetLang} {text}</div>
+  </div>
+  <div class="form-group">
+    <label for="userPrompt">User Prompt</label>
+    <textarea id="userPrompt" rows="2" placeholder="用户提示词"></textarea>
+    <div class="hint">可用变量: {text} {sourceLang} {targetLang}</div>
+  </div>
+  <div class="form-group">
+    <label for="multiplePrompt">Multiple Prompt（批量翻译）</label>
+    <textarea id="multiplePrompt" rows="3" placeholder="批量翻译提示词"></textarea>
+    <div class="hint">可用变量: {text} {sourceLang} {targetLang}</div>
+  </div>
+  <button id="resetPrompts" class="small" style="color:#888">恢复默认 Prompt</button>
+
+  <div class="btn-group">
+    <button id="saveBtn" class="primary">保存偏好设置</button>
+    <span id="saveResult"></span>
+  </div>
+
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>

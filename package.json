@@ -1,0 +1,19 @@
+{
+  "name": "fuzzy-translate",
+  "version": "1.0.0",
+  "description": "Chrome 沉浸式翻译扩展，支持自定义 OpenAI 兼容 API",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.4.0",
+    "@types/chrome": "^0.1.40",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.8"
+  }
+}

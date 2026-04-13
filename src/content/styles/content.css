@@ -1,0 +1,60 @@
+/* Fuzzy Translate — Injected Content Styles */
+
+/* Translation block: inherits original paragraph appearance */
+.ft-translation {
+  display: block;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Loading spinner element */
+.ft-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #ccc;
+  border-top-color: #666;
+  border-radius: 50%;
+  animation: ft-spin 0.6s linear infinite;
+  vertical-align: middle;
+}
+
+.ft-translation[data-ft-status="streaming"] {
+  opacity: 0.85;
+}
+
+.ft-translation[data-ft-status="complete"] {
+  opacity: 1;
+}
+
+.ft-translation[data-ft-status="error"] {
+  opacity: 1;
+}
+
+.ft-error-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: inherit;
+  color: #ef4444;
+}
+
+.ft-retry-btn {
+  display: inline-block;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  color: #ef4444;
+  border: 1px solid #ef4444;
+  border-radius: 4px;
+  cursor: pointer;
+  background: white;
+}
+
+.ft-retry-btn:hover {
+  background: #fef2f2;
+}
+
+@keyframes ft-spin {
+  to { transform: rotate(360deg); }
+}

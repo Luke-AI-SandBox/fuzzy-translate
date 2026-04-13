@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fuzzy Translate</title>
+  <style>
+    body { width: 300px; padding: 16px; font-family: system-ui, sans-serif; margin: 0; }
+    h1 { font-size: 16px; margin: 0 0 12px; }
+    button { width: 100%; padding: 10px; margin: 4px 0; border: 1px solid #ddd; border-radius: 6px; background: #fff; cursor: pointer; font-size: 14px; }
+    button:hover { background: #f5f5f5; }
+    button.primary { background: #4A90D9; color: white; border-color: #4A90D9; }
+    button.primary:hover { background: #357ABD; }
+    .status { font-size: 12px; color: #666; margin-top: 8px; }
+    .divider { border-top: 1px solid #eee; margin: 12px 0; }
+    .warning { font-size: 12px; color: #856404; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; padding: 8px; margin-bottom: 8px; text-align: center; }
+    .warning a { color: #856404; font-weight: bold; }
+    .progress { height: 4px; background: #e9ecef; border-radius: 2px; margin-bottom: 8px; overflow: hidden; }
+    .progress-fill { height: 100%; background: #4A90D9; border-radius: 2px; width: 0%; transition: width 0.3s ease; }
+  </style>
+</head>
+<body>
+  <h1>Fuzzy Translate</h1>
+  <div id="apiWarning" class="warning" style="display:none">请先配置 API<br><a href="#" id="goSettings">前往设置</a></div>
+  <div id="progressBar" class="progress" style="display:none"><div id="progressFill" class="progress-fill"></div></div>
+  <button id="translateBtn" class="primary">翻译此页</button>
+  <div class="divider"></div>
+  <button id="hoverToggle">悬浮翻译：关闭</button>
+  <div class="divider"></div>
+  <button id="optionsBtn">设置</button>
+  <div class="status" id="status"></div>
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>
