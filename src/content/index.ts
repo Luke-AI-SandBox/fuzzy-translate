@@ -1,10 +1,17 @@
 import type { Message } from '../shared/messaging';
 import { toggleFullPageTranslation, cancelTranslation, isFullPageTranslating, getProgress } from './modes/full-page';
-import { removeAllTranslations } from './dom/translation-injector';
+import { removeAllTranslations, setDisplayMode, setBubbleStyle, setFontScale, setTranslationPosition } from './dom/translation-injector';
+import type { DisplayMode } from '../shared/types';
 import { toggleHoverMode, isHoverModeEnabled, enableHoverMode } from './modes/hover';
 import { getPreferences } from '../shared/config/storage';
 import { createFloatingBall } from './dom/floating-ball';
+import { showTranslateToolbar, hideTranslateToolbar, updateToolbarProgress, isToolbarVisible } from './dom/translate-toolbar';
+import { initTheme } from './theme-sync';
+import { isExtensionAlive, safeSendMessage } from './ext-guard';
 import './modes/selection';
+
+// Initialize theme early so Shadow DOMs created later pick it up
+initTheme();
 
 console.log('Fuzzy Translate loaded');
 
@@ -43,10 +50,33 @@ function showToast(message: string, duration = 2000): void {
 
 // Auto-enable hover mode based on saved preference (default: on)
 let currentFabSize: 'small' | 'medium' | 'large' = 'medium';
-getPreferences().then(prefs => {
+getPreferences().catch(() => null).then(prefs => {
+  if (!prefs) return;
+  // Site rule lookup — 'never' hides all UI, 'always' auto-triggers translation
+  const host = location.hostname;
+  const siteRule = prefs.siteRules?.[host];
+  if (siteRule === 'never') return; // Full opt-out for this site
+
   if (prefs.hoverMode) enableHoverMode();
   currentFabSize = prefs.fabSize || 'medium';
+  setDisplayMode(prefs.displayMode || 'bilingual');
+  setBubbleStyle(prefs.bubbleStyle || 'bare');
+  setFontScale(prefs.fontScale || 1.0);
+  setTranslationPosition(prefs.translationPosition || 'below');
   initFab();
+
+  // Auto-translate if rule is 'always'
+  if (siteRule === 'always') {
+    setTimeout(() => {
+      if (!isFullPageTranslating()) {
+        toggleFullPageTranslation();
+        setTimeout(() => {
+          fab?.updateTranslatingState(isFullPageTranslating());
+          showToolbar();
+        }, 200);
+      }
+    }, 400);
+  }
 });
 
 // --- Floating Ball ---
@@ -61,33 +91,55 @@ function createFabInstance(size: 'small' | 'medium' | 'large') {
   return createFloatingBall({
   onTranslate: () => {
     if (isFullPageTranslating()) {
-      // Stop: cancel all pending requests and remove incomplete translations
       cancelTranslation();
       fab.updateTranslatingState(false);
+      hideToolbar();
     } else {
-      // Start full-page translation
       toggleFullPageTranslation();
-      setTimeout(() => fab.updateTranslatingState(isFullPageTranslating()), 100);
+      setTimeout(() => {
+        fab.updateTranslatingState(isFullPageTranslating());
+        showToolbar();
+      }, 100);
     }
   },
   onClear: () => {
-    chrome.runtime.sendMessage({ type: 'CLEAR_PAGE_CACHE' });
+    safeSendMessage({ type: 'CLEAR_PAGE_CACHE' });
     cancelTranslation();
     removeAllTranslations();
     fab.updateTranslatingState(false);
+    hideToolbar();
     showToast('翻译缓存已清除');
   },
   onSettings: () => {
-    chrome.runtime.sendMessage({ type: 'OPEN_OPTIONS' });
+    safeSendMessage({ type: 'OPEN_OPTIONS' });
   },
 }, size);
 }
 
+// Cancel ongoing translations when the page enters bfcache (prevents orphaned ports)
+window.addEventListener('pagehide', (e) => {
+  if (e.persisted && isFullPageTranslating()) {
+    cancelTranslation();
+  }
+});
+
 // Listen for fabSize changes to recreate the FAB
-chrome.storage.onChanged.addListener((changes) => {
+if (isExtensionAlive()) chrome.storage.onChanged.addListener((changes) => {
   if (changes.fabSize?.newValue && changes.fabSize.newValue !== currentFabSize) {
     currentFabSize = changes.fabSize.newValue as 'small' | 'medium' | 'large';
     initFab();
+  }
+  if (changes.displayMode?.newValue) {
+    setDisplayMode(changes.displayMode.newValue as DisplayMode);
+  }
+  if (changes.bubbleStyle?.newValue) {
+    setBubbleStyle(changes.bubbleStyle.newValue as any);
+  }
+  if (changes.fontScale?.newValue !== undefined) {
+    setFontScale(changes.fontScale.newValue as number);
+  }
+  if (changes.translationPosition?.newValue) {
+    setTranslationPosition(changes.translationPosition.newValue as 'below' | 'above');
   }
 });
 
@@ -131,12 +183,16 @@ chrome.runtime.onMessage.addListener((message: Message, _sender, sendResponse) =
   switch (message.type) {
     case 'TRANSLATE_PAGE':
       toggleFullPageTranslation();
-      setTimeout(() => fab.updateTranslatingState(isFullPageTranslating()), 100);
+      setTimeout(() => {
+        fab.updateTranslatingState(isFullPageTranslating());
+        if (isFullPageTranslating()) showToolbar(); else hideToolbar();
+      }, 100);
       sendResponse({ status: 'ok' });
       break;
     case 'CANCEL_TRANSLATION':
       cancelTranslation();
       fab.updateTranslatingState(false);
+      hideToolbar();
       sendResponse({ status: 'ok' });
       break;
     case 'TOGGLE_HOVER_MODE': {
@@ -165,3 +221,48 @@ document.addEventListener('ft-retry', ((e: CustomEvent) => {
     // TODO: Implement retry logic in a future iteration
   }
 }) as EventListener);
+
+// --- Translate toolbar lifecycle ---
+let toolbarPollTimer: ReturnType<typeof setInterval> | null = null;
+
+function showToolbar(): void {
+  if (isToolbarVisible()) return;
+  showTranslateToolbar({
+    onRetry: () => {
+      cancelTranslation();
+      removeAllTranslations();
+      setTimeout(() => {
+        toggleFullPageTranslation();
+        setTimeout(() => fab.updateTranslatingState(isFullPageTranslating()), 100);
+      }, 100);
+    },
+    onSettings: () => safeSendMessage({ type: 'OPEN_OPTIONS' }),
+    onStop: () => {
+      cancelTranslation();
+      fab.updateTranslatingState(false);
+      hideToolbar();
+    },
+  });
+  // Poll progress to update the toolbar
+  if (toolbarPollTimer) clearInterval(toolbarPollTimer);
+  toolbarPollTimer = setInterval(() => {
+    if (!isFullPageTranslating() && !isToolbarVisible()) return;
+    const { translated, total } = getProgress();
+    updateToolbarProgress(translated, total);
+    // Auto-hide when translation finished (all done)
+    if (!isFullPageTranslating() && translated > 0 && translated >= total) {
+      // Keep toolbar visible briefly showing "done" state, then hide
+      setTimeout(() => hideToolbar(), 2500);
+      clearInterval(toolbarPollTimer!);
+      toolbarPollTimer = null;
+    }
+  }, 400);
+}
+
+function hideToolbar(): void {
+  hideTranslateToolbar();
+  if (toolbarPollTimer) {
+    clearInterval(toolbarPollTimer);
+    toolbarPollTimer = null;
+  }
+}

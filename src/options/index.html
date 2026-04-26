@@ -5,149 +5,1047 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Fuzzy Translate - 设置</title>
   <style>
-    body { max-width: 640px; margin: 40px auto; padding: 0 20px; font-family: system-ui, sans-serif; color: #333; }
-    h1 { font-size: 24px; margin-bottom: 24px; }
-    h2 { font-size: 18px; margin-top: 32px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
-    .form-group { margin-bottom: 16px; }
-    label { display: block; margin-bottom: 4px; font-weight: 500; font-size: 14px; }
-    .hint { font-size: 12px; color: #888; margin-top: 2px; }
-    input, select, textarea { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; box-sizing: border-box; font-family: system-ui, sans-serif; }
-    textarea { resize: vertical; line-height: 1.5; }
-    button { padding: 8px 16px; border-radius: 6px; border: 1px solid #ddd; cursor: pointer; font-size: 13px; background: #fff; }
-    button.primary { background: #4A90D9; color: white; border-color: #4A90D9; }
-    button.primary:hover { background: #357ABD; }
-    button.danger { color: #ef4444; border-color: #ef4444; }
-    button.danger:hover { background: #fef2f2; }
-    button.small { padding: 4px 10px; font-size: 12px; }
+    /* Base palette fallbacks (overridden by #ft-theme-vars) */
+    :root {
+      --surface: var(--glass-bg);
+      --surface-solid: var(--glass-bg-solid);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; min-height: 100vh; }
+    body {
+      font-family: 'Geist', system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      -webkit-font-smoothing: antialiased;
+      position: relative;
+      overflow-x: hidden;
+    }
+    /* Ambient radial accent (uses theme orbs) */
+    body::before {
+      content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background: var(--wallpaper-grad);
+      opacity: 0.35;
+    }
+    body::after {
+      content: ''; position: fixed; pointer-events: none; z-index: 0;
+      width: 480px; height: 480px; border-radius: 50%;
+      left: -120px; top: -180px; filter: blur(80px);
+      background: var(--orb-1); opacity: 0.35;
+    }
+
+    .app {
+      position: relative; z-index: 1;
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      min-height: 100vh;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    /* Sidebar */
+    aside.side {
+      padding: 28px 18px 28px 24px;
+      position: sticky; top: 0; align-self: start;
+      height: 100vh; overflow-y: auto;
+      border-right: 1px solid var(--rule);
+    }
+    .brand {
+      display: flex; align-items: center; gap: 10px;
+      padding: 0 6px 20px;
+    }
+    .brand-icon {
+      width: 32px; height: 32px; border-radius: 9px;
+      background: var(--accent-grad);
+      color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 10px -4px var(--accent);
+    }
+    .brand-icon svg { width: 17px; height: 17px; }
+    .brand-title { font-size: 13px; font-weight: 600; letter-spacing: -0.1px; }
+    .brand-version { font-size: 10.5px; color: var(--muted); margin-top: 2px; font-family: ui-monospace, Menlo, monospace; }
+
+    .nav a {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 12px; border-radius: 9px; margin-bottom: 2px;
+      text-decoration: none; font-size: 13px; font-weight: 400;
+      color: var(--fg);
+      transition: background 0.15s, color 0.15s;
+    }
+    .nav a:hover { background: var(--surface-soft); }
+    .nav a.active {
+      background: var(--accent-soft);
+      color: var(--accent-fg);
+      font-weight: 500;
+    }
+    .nav a svg { width: 15px; height: 15px; }
+
+    /* Tab routing — only the active section is shown */
+    main > section[id^="sec-"] { display: none; animation: ft-fade-in 0.22s ease-out; }
+    main > section[id^="sec-"].active { display: block; }
+    @keyframes ft-fade-in {
+      from { opacity: 0; transform: translateY(4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Main */
+    main {
+      padding: 36px 44px 80px;
+      max-width: 780px;
+    }
+
+    .hero h1 {
+      font-size: 26px; font-weight: 600; letter-spacing: -0.3px;
+      margin: 0 0 6px;
+    }
+    .hero-sub {
+      font-size: 13px; color: var(--muted); margin-bottom: 28px;
+    }
+
+    section { margin-bottom: 42px; scroll-margin-top: 24px; }
+    section h2 {
+      font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase;
+      font-weight: 600; color: var(--fg);
+      margin: 0 0 4px;
+    }
+    section .section-sub {
+      font-size: 12px; color: var(--muted); margin-bottom: 14px;
+    }
+
+    .field { margin-bottom: 14px; }
+    .field-head {
+      display: flex; justify-content: space-between; align-items: baseline;
+      margin-bottom: 6px;
+    }
+    .field label { font-size: 12px; font-weight: 500; }
+    .field .hint { font-size: 11.5px; color: var(--muted); }
+    .hint { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 9px;
+      background: oklch(1 0 0 / 0.88);
+      border: 1px solid var(--glass-border);
+      color: var(--fg);
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      box-shadow: inset 0 1px 0 var(--glass-inner-hl);
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--accent-rule);
+      box-shadow: inset 0 1px 0 var(--glass-inner-hl), 0 0 0 3px var(--accent-soft);
+    }
+    input.mono, textarea.mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px; }
+    textarea { resize: vertical; line-height: 1.55; min-height: 70px; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px; }
+
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    /* Buttons */
+    button {
+      padding: 9px 16px; border-radius: 9px;
+      font-size: 13px; font-weight: 500;
+      cursor: pointer; border: 1px solid var(--glass-border);
+      background: transparent; color: var(--fg);
+      font-family: inherit;
+      transition: background 0.15s, border-color 0.15s, transform 0.1s;
+    }
+    button:hover { background: var(--surface-soft); }
+    button:active { transform: translateY(1px); }
+    button.primary {
+      background: var(--accent); color: #fff; border-color: var(--accent);
+      box-shadow: 0 2px 8px -2px var(--accent);
+    }
+    button.primary:hover { background: oklch(0.56 0.15 248); }
+    button.danger { color: var(--danger); border-color: var(--danger); }
+    button.danger:hover { background: oklch(0.97 0.04 25); }
+    button.small { padding: 6px 12px; font-size: 12px; border-radius: 7px; }
+    button.ghost { background: transparent; }
     .btn-group { display: flex; gap: 8px; margin-top: 24px; align-items: center; }
-    .success { color: #22c55e; font-size: 14px; }
-    .error { color: #ef4444; font-size: 14px; }
 
-    /* Provider card */
-    .provider-card { border: 1px solid #ddd; border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
-    .provider-card.active { border-color: #4A90D9; }
-    .provider-header { display: flex; align-items: center; gap: 8px; padding: 12px 14px; cursor: pointer; background: #fafafa; }
-    .provider-header:hover { background: #f0f0f0; }
-    .provider-name { font-weight: 600; flex: 1; }
-    .provider-endpoint { font-size: 12px; color: #888; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .provider-badge { font-size: 11px; background: #4A90D9; color: #fff; padding: 1px 8px; border-radius: 10px; }
+    .success { color: var(--success); font-size: 13px; }
+    .error { color: var(--danger); font-size: 13px; }
+
+    /* Provider cards */
+    #providerList { margin-bottom: 12px; }
+    .provider-card {
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      margin-bottom: 10px;
+      overflow: hidden;
+      background: var(--surface);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      transition: border-color 0.15s;
+    }
+    .provider-card.active { border-color: var(--accent-rule); }
+    .provider-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 16px; cursor: pointer;
+    }
+    .provider-header:hover { background: var(--surface-soft); }
+    .provider-name { font-size: 13.5px; font-weight: 600; flex: 0 0 auto; }
+    .provider-endpoint {
+      font-family: ui-monospace, Menlo, monospace;
+      font-size: 11.5px; color: var(--muted);
+      flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      padding: 0 10px;
+    }
+    .provider-badge {
+      font-size: 10.5px; font-weight: 500; letter-spacing: 0.2px;
+      background: var(--accent-soft); color: var(--accent-fg);
+      padding: 2px 8px; border-radius: 999px;
+    }
     .provider-actions { display: flex; gap: 4px; }
-    .provider-body { padding: 0 14px 14px; border-top: 1px solid #eee; }
+    .provider-body {
+      padding: 0 16px 14px;
+      border-top: 1px solid var(--glass-border);
+    }
 
-    /* Model chips inside provider */
-    .model-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-    .model-chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; border: 1px solid #ddd; border-radius: 16px; font-size: 13px; cursor: pointer; transition: all 0.15s; }
-    .model-chip:hover { border-color: #aaa; }
-    .model-chip.active { background: #4A90D9; color: #fff; border-color: #4A90D9; }
-    .model-chip .del { font-size: 11px; opacity: 0.5; margin-left: 2px; cursor: pointer; }
+    /* Model chips */
+    .model-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; align-items: center; }
+    .model-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 5px 12px; border: 1px solid var(--glass-border);
+      background: oklch(1 0 0 / 0.6);
+      border-radius: 999px; font-size: 12.5px; font-weight: 500;
+      cursor: pointer; transition: all 0.15s;
+      font-family: ui-monospace, Menlo, monospace;
+    }
+    .model-chip:hover { border-color: var(--muted); }
+    .model-chip.active {
+      background: var(--accent); color: #fff; border-color: var(--accent);
+      box-shadow: 0 2px 6px -2px var(--accent);
+    }
+    .model-chip .del {
+      font-size: 11px; opacity: 0.55; margin-left: 3px;
+      cursor: pointer; line-height: 1;
+    }
     .model-chip .del:hover { opacity: 1; }
-    .add-model-inline { display: inline-flex; align-items: center; gap: 4px; }
-    .add-model-inline input { width: 140px; padding: 4px 8px; font-size: 13px; border-radius: 16px; }
-    .add-model-inline button { padding: 4px 10px; border-radius: 16px; font-size: 12px; }
+
+    .add-model-inline {
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .add-model-inline input {
+      width: 150px; padding: 5px 10px; font-size: 12.5px;
+      border-radius: 999px;
+      font-family: ui-monospace, Menlo, monospace;
+    }
+    .add-model-inline button {
+      padding: 5px 12px; border-radius: 999px; font-size: 12px;
+    }
+
+    /* Provider presets */
+    .preset-row {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+      margin-bottom: 14px;
+    }
+    .preset-chip {
+      padding: 10px 12px; border-radius: 10px;
+      background: var(--surface);
+      border: 1px solid var(--glass-border);
+      font-size: 12px; font-weight: 500; text-align: center;
+      cursor: pointer; transition: border-color 0.15s, background 0.15s;
+    }
+    .preset-chip:hover { border-color: var(--muted); }
+    .preset-chip.active {
+      background: var(--accent-soft);
+      border-color: var(--accent-rule);
+      color: var(--accent-fg);
+    }
 
     /* Provider form */
-    .provider-form { border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin-bottom: 12px; background: #fafafa; }
-    .provider-form h3 { margin: 0 0 12px; font-size: 15px; }
+    .provider-form {
+      border: 1px solid var(--accent-rule);
+      border-radius: 12px; padding: 18px; margin-bottom: 12px;
+      background: oklch(1 0 0 / 0.75);
+      backdrop-filter: blur(14px);
+      box-shadow: 0 4px 14px -6px rgba(30,30,60,0.10);
+    }
+    .provider-form h3 { margin: 0 0 14px; font-size: 14px; font-weight: 600; }
     .provider-form .row { display: flex; gap: 8px; }
     .provider-form .row > * { flex: 1; }
+
+    /* Scrollbar polish */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-thumb { background: oklch(0.80 0.005 260); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: oklch(0.70 0.005 260); }
+
+    /* Trigger cards */
+    .trigger-card {
+      padding: 14px 16px;
+      border-radius: 12px;
+      margin-bottom: 10px;
+      background: var(--surface);
+      border: 1px solid var(--glass-border);
+      display: flex; align-items: center; gap: 14px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .trigger-card:hover { border-color: var(--muted); }
+    .trigger-card.on {
+      background: var(--accent-soft);
+      border-color: var(--accent-rule);
+    }
+    .trigger-card-icon {
+      width: 34px; height: 34px; border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      background: oklch(0.94 0.005 260);
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+    .trigger-card.on .trigger-card-icon {
+      background: #fff;
+      color: var(--accent-fg);
+    }
+    .trigger-card-icon svg { width: 17px; height: 17px; }
+    .trigger-card-body { flex: 1; min-width: 0; }
+    .trigger-card-label { font-size: 13.5px; font-weight: 500; }
+    .trigger-card.on .trigger-card-label { color: var(--accent-fg); }
+    .trigger-card-desc { font-size: 12px; color: var(--muted); margin-top: 3px; }
+
+    /* Compact iOS-style switch reused across trigger cards */
+    .tg-switch {
+      position: relative;
+      width: 36px; height: 20px;
+      border-radius: 999px;
+      background: var(--surface-soft);
+      border: 1px solid var(--rule);
+      cursor: pointer;
+      transition: background 0.18s ease, border-color 0.18s ease;
+      flex-shrink: 0;
+    }
+    .tg-switch::after {
+      content: '';
+      position: absolute;
+      top: 1px; left: 1px;
+      width: 16px; height: 16px;
+      background: var(--surface);
+      border-radius: 50%;
+      box-shadow: 0 1px 2px rgba(20,20,40,0.18);
+      transition: transform 0.18s ease, background 0.18s ease;
+    }
+    .tg-switch.on { background: var(--accent); border-color: var(--accent); }
+    .tg-switch.on::after { transform: translateX(16px); background: #fff; }
+
+    .kbd-group { display: flex; align-items: center; gap: 3px; }
+    .kbd {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 22px; height: 22px; padding: 0 6px;
+      border-radius: 6px;
+      font-size: 11px; font-weight: 500;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      background: oklch(1 0 0);
+      border: 1px solid var(--glass-border);
+      box-shadow: inset 0 -1px 0 var(--glass-border);
+      color: var(--fg);
+    }
+    .kbd-label { font-size: 11px; color: var(--muted); margin-left: 4px; }
+
+    /* Preview cards (position) */
+    .preview-row {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
+      margin-bottom: 14px;
+    }
+    .preview-card {
+      padding: 12px;
+      border-radius: 12px;
+      background: var(--surface);
+      border: 1px solid var(--glass-border);
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .preview-card:hover { border-color: var(--muted); }
+    .preview-card.active {
+      background: var(--accent-soft);
+      border-color: var(--accent-rule);
+    }
+    .preview-stack {
+      height: 54px;
+      display: flex; flex-direction: column; justify-content: center; gap: 5px;
+      margin-bottom: 10px;
+    }
+    .preview-line {
+      height: 8px; border-radius: 2px; width: 80%;
+      background: var(--fg); opacity: 0.85;
+    }
+    .preview-line.tr { background: var(--accent-fg); opacity: 0.55; }
+    .preview-card-label {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 12px; font-weight: 500;
+    }
+    .preview-card.active .preview-card-label { color: var(--accent-fg); }
+    .preview-card-label svg { width: 14px; height: 14px; }
+
+    /* Bubble style preview cards (Display tab) */
+    .bubble-row {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+      margin-bottom: 14px;
+    }
+    .bubble-card {
+      padding: 10px; border-radius: 10px;
+      background: var(--surface);
+      border: 1px solid var(--glass-border);
+      cursor: pointer; transition: border-color 0.15s, background 0.15s;
+    }
+    .bubble-card:hover { border-color: var(--muted); }
+    .bubble-card.active { background: var(--accent-soft); border-color: var(--accent-rule); }
+    .bubble-card .mini {
+      height: 36px; display: flex; align-items: center;
+      padding: 0 10px; border-radius: 8px;
+      margin-bottom: 8px;
+      font-size: 10px;
+      color: var(--translated-fg);
+    }
+    .bubble-card.active .label { color: var(--accent-fg); }
+    .bubble-card .label { font-size: 11px; font-weight: 500; text-align: center; }
+    .mini-frosted {
+      background: linear-gradient(180deg, oklch(0.98 0.020 248 / 0.85), oklch(0.95 0.030 248 / 0.60));
+      backdrop-filter: blur(10px) saturate(170%);
+      border: 1px solid oklch(0.62 0.14 248 / 0.22);
+      box-shadow:
+        0 6px 14px -8px oklch(0.40 0.10 248 / 0.22),
+        inset 0 1px 0 oklch(1 0 0 / 0.75);
+    }
+    [data-ft-theme="dark"] .mini-frosted {
+      background: linear-gradient(180deg, oklch(0.28 0.04 248 / 0.55), oklch(0.22 0.03 248 / 0.40));
+      border-color: oklch(0.55 0.08 248 / 0.30);
+      box-shadow:
+        0 6px 14px -8px rgba(0,0,0,0.50),
+        inset 0 1px 0 oklch(1 0 0 / 0.06);
+    }
+    .mini-rounded {
+      background: transparent;
+      border: none;
+      border-left: 3px solid var(--accent);
+      border-radius: 0;
+      padding-left: 10px;
+    }
+    .mini-solid {
+      background: oklch(0.96 0.025 248);
+      border: 1px solid oklch(0.88 0.04 248);
+    }
+    [data-ft-theme="dark"] .mini-solid {
+      background: oklch(0.26 0.04 248); border-color: oklch(0.34 0.05 248);
+    }
+    .mini-bare {
+      background: transparent;
+      border: none;
+      border-left: 2px solid oklch(0.62 0.14 248 / 0.30);
+      border-radius: 0;
+      padding-left: 10px;
+    }
+
+    /* Font scale preview */
+    .type-preview {
+      padding: 14px 16px; border-radius: 10px;
+      background: var(--surface);
+      border: 1px solid var(--glass-border);
+      font-family: "Iowan Old Style", "Hoefler Text", Georgia, serif;
+      line-height: 1.6;
+    }
+    .type-preview .tp-orig { color: var(--fg); }
+    .type-preview .tp-tr { color: var(--translated-fg); margin-top: 4px; }
+
+    /* Cache stat cards */
+    .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+    .stat-card {
+      padding: 14px 16px; border-radius: 12px;
+      background: var(--surface);
+      border: 1px solid var(--glass-border);
+    }
+    .stat-label {
+      font-size: 10.5px; font-weight: 600; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--muted);
+    }
+    .stat-value {
+      font-size: 22px; font-weight: 600; margin-top: 4px;
+      letter-spacing: -0.3px;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    }
+    .chip-row {
+      display: flex; gap: 6px; margin-bottom: 14px;
+    }
+    .chip-choice {
+      flex: 1; padding: 8px 10px; border-radius: 8px;
+      font-size: 12px; font-weight: 500; text-align: center;
+      background: var(--surface-soft);
+      border: 1px solid var(--glass-border);
+      color: var(--fg); cursor: pointer;
+    }
+    .chip-choice.active {
+      background: var(--accent-soft);
+      border-color: var(--accent-rule);
+      color: var(--accent-fg);
+    }
+
+    /* Data table (cache + sites) */
+    .data-table {
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--surface);
+      backdrop-filter: blur(14px);
+    }
+    .data-row {
+      display: grid; gap: 10px;
+      padding: 12px 16px; font-size: 13px;
+      align-items: center;
+      border-top: 1px solid var(--glass-border);
+    }
+    .data-row:first-child { border-top: none; }
+    .data-host { display: flex; align-items: center; gap: 8px; }
+    .data-host-dot { width: 16px; height: 16px; border-radius: 4px; background: var(--accent-soft); border: 1px solid var(--accent-rule); }
+    .data-muted { color: var(--muted); font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+    .data-actions { display: flex; gap: 4px; justify-content: flex-end; }
+    .data-trash {
+      width: 26px; height: 26px; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; background: transparent; border: none;
+      color: var(--muted);
+    }
+    .data-trash:hover { background: var(--surface-soft); color: var(--danger); }
+    .data-trash svg { width: 13px; height: 13px; }
+
+    .rule-pill {
+      display: inline-flex; align-items: center;
+      padding: 3px 10px; border-radius: 999px;
+      font-size: 11px; font-weight: 500;
+      background: var(--surface-soft);
+      border: 1px solid var(--glass-border);
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .rule-pill.active-always {
+      background: oklch(0.9 0.06 150 / 0.4);
+      border-color: oklch(0.6 0.13 150 / 0.4);
+      color: oklch(0.42 0.14 152);
+    }
+    .rule-pill.active-never {
+      background: oklch(0.9 0.04 25 / 0.4);
+      border-color: oklch(0.6 0.1 25 / 0.4);
+      color: oklch(0.55 0.18 25);
+    }
+
+    .empty-state {
+      padding: 24px; text-align: center;
+      font-size: 13px; color: var(--muted);
+    }
+    .site-add {
+      display: flex; gap: 8px; margin-top: 12px; align-items: center;
+    }
+    .site-add input {
+      flex: 1; padding: 7px 12px; font-size: 13px;
+      font-family: ui-monospace, Menlo, monospace;
+    }
+
+    /* Sidebar theme controls */
+    .side-theme {
+      margin-top: auto; padding-top: 14px; border-top: 1px solid var(--rule);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .side-swatches { display: flex; gap: 6px; flex: 1; }
+    .side-swatch {
+      width: 20px; height: 20px; border-radius: 6px; cursor: pointer;
+      border: 1.5px solid transparent; transition: border-color 0.15s, transform 0.1s;
+    }
+    .side-swatch:hover { transform: scale(1.1); }
+    .side-swatch.active { border-color: var(--fg); }
+    .side-swatch.aurora { background: linear-gradient(135deg, oklch(0.62 0.14 248), oklch(0.78 0.14 308)); }
+    .side-swatch.sunset { background: linear-gradient(135deg, oklch(0.62 0.14 24), oklch(0.78 0.14 84)); }
+    .side-swatch.forest { background: linear-gradient(135deg, oklch(0.62 0.14 152), oklch(0.78 0.14 212)); }
+    .side-theme-toggle {
+      width: 28px; height: 28px; border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--muted); background: transparent;
+      border: 1px solid var(--glass-border); transition: background 0.15s;
+    }
+    .side-theme-toggle:hover { background: var(--surface-soft); color: var(--fg); }
+    .side-theme-toggle svg { width: 14px; height: 14px; }
+    aside.side { display: flex; flex-direction: column; }
+    aside.side > nav { flex: 1; }
+
+    @media (max-width: 900px) {
+      .app { grid-template-columns: 1fr; }
+      aside.side { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--rule); }
+      .nav { display: flex; gap: 4px; overflow-x: auto; }
+      .nav a { white-space: nowrap; }
+    }
   </style>
+  <style id="ft-theme-vars"></style>
 </head>
 <body>
-  <h1>Fuzzy Translate 设置</h1>
+  <div class="app">
+    <aside class="side">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6h10M8 4v2M5 6c0 5 3 8 7 8M13 6c-1 4-4 7-8 8"/>
+            <path d="M13 21l4-10 4 10M14.5 17.5h5"/>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-title">Fuzzy Translate</div>
+          <div class="brand-version">v 1.1.0</div>
+        </div>
+      </div>
 
-  <h2>API 服务商 & 模型</h2>
-  <div id="providerList"></div>
-  <button id="addProviderBtn" class="small">＋ 添加服务商</button>
+      <nav class="nav">
+        <a href="#sec-provider">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="8" cy="15" r="4"/><path d="M11 13l9-9M17 7l3 3M15 9l2 2"/>
+          </svg>
+          模型服务商
+        </a>
+        <a href="#sec-display">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 3h9l4 4v14H6z M15 3v4h4"/>
+          </svg>
+          翻译 & 显示
+        </a>
+        <a href="#sec-triggers">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 4l7 16 2-7 7-2z"/>
+          </svg>
+          触发器
+        </a>
+        <a href="#sec-prompts">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2 2M16 16l2 2M6 18l2-2M16 8l2-2"/>
+          </svg>
+          Prompt
+        </a>
+        <a href="#sec-cache">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <ellipse cx="12" cy="5" rx="8" ry="3"/>
+            <path d="M4 5v6c0 1.6 3.6 3 8 3s8-1.4 8-3V5M4 11v6c0 1.6 3.6 3 8 3s8-1.4 8-3v-6"/>
+          </svg>
+          缓存
+        </a>
+        <a href="#sec-languages">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 7h6M8 5v2M5 7c0 4 2 7 5 7M11 7c-1 3-3 5-6 6M13 21l3-8 3 8M13.8 18h4.4"/>
+          </svg>
+          语言对
+        </a>
+        <a href="#sec-sites">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>
+          </svg>
+          站点规则
+        </a>
+      </nav>
 
-  <div id="providerForm" class="provider-form" style="display:none">
-    <h3 id="pfTitle">添加服务商</h3>
-    <input type="hidden" id="pfId">
-    <div class="form-group">
-      <label for="pfName">服务商名称</label>
-      <input type="text" id="pfName" placeholder="例如：OpenAI、DeepSeek、Ollama">
-    </div>
-    <div class="form-group">
-      <label for="pfEndpoint">API Endpoint</label>
-      <input type="text" id="pfEndpoint" placeholder="https://api.openai.com/v1">
-    </div>
-    <div class="form-group">
-      <label for="pfApiKey">API Key</label>
-      <input type="password" id="pfApiKey" placeholder="sk-...">
-      <div class="hint">仅存本机，不同步到云端</div>
-    </div>
-    <div class="btn-group" style="margin-top:12px">
-      <button id="testProviderBtn" class="small">测试连接</button>
-      <span id="testProviderResult"></span>
-      <div style="flex:1"></div>
-      <button id="cancelProviderBtn" class="small">取消</button>
-      <button id="saveProviderBtn" class="small primary">保存</button>
-    </div>
-  </div>
+      <div class="side-theme">
+        <div class="side-swatches">
+          <div class="side-swatch aurora" data-accent="aurora" title="Aurora"></div>
+          <div class="side-swatch sunset" data-accent="sunset" title="Sunset"></div>
+          <div class="side-swatch forest" data-accent="forest" title="Forest"></div>
+        </div>
+        <button class="side-theme-toggle" id="themeToggle" title="切换深色/浅色">
+          <svg id="themeIconLight" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.4 1.4M17.6 17.6L19 19M5 19l1.4-1.4M17.6 6.4L19 5"/>
+          </svg>
+          <svg id="themeIconDark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+            <path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/>
+          </svg>
+        </button>
+      </div>
+    </aside>
 
-  <h2>翻译偏好</h2>
-  <div class="form-group">
-    <label for="targetLang">目标语言</label>
-    <select id="targetLang">
-      <option value="zh-CN">简体中文</option>
-      <option value="zh-TW">繁体中文</option>
-      <option value="en">English</option>
-      <option value="ja">日本語</option>
-      <option value="ko">한국어</option>
-      <option value="fr">Français</option>
-      <option value="de">Deutsch</option>
-      <option value="es">Español</option>
-      <option value="ru">Русский</option>
-    </select>
-  </div>
-  <div class="form-group">
-    <label for="cacheExpiry">缓存过期时间（小时）</label>
-    <input type="number" id="cacheExpiry" min="1" max="8760" value="168">
-  </div>
-  <div class="form-group">
-    <label for="maxConcurrency">并发翻译数量: <span id="concurrencyValue">3</span></label>
-    <input type="range" id="maxConcurrency" min="1" max="10" value="3">
-    <div class="hint">数值越大速度越快，但可能触发 API 速率限制</div>
-  </div>
-  <div class="form-group">
-    <label for="hoverKey">悬浮翻译快捷键</label>
-    <select id="hoverKey">
-      <option value="Control">Ctrl</option>
-      <option value="Alt">Alt</option>
-      <option value="Shift">Shift</option>
-      <option value="Meta">Meta (⌘/Win)</option>
-    </select>
-    <div class="hint">开启悬浮翻译后，按此键触发翻译</div>
-  </div>
-  <div class="form-group">
-    <label for="fabSize">悬浮球大小</label>
-    <select id="fabSize">
-      <option value="small">小</option>
-      <option value="medium" selected>中</option>
-      <option value="large">大</option>
-    </select>
-  </div>
+    <main>
+      <div class="hero">
+        <h1>Fuzzy Translate 设置</h1>
+        <div class="hero-sub">使用你自己的 AI 模型 API 进行沉浸式网页翻译</div>
+      </div>
 
-  <h2>Prompt 设置</h2>
-  <div class="form-group">
-    <label for="systemPrompt">System Prompt</label>
-    <textarea id="systemPrompt" rows="3" placeholder="系统提示词"></textarea>
-    <div class="hint">可用变量: {sourceLang} {targetLang} {text}</div>
-  </div>
-  <div class="form-group">
-    <label for="userPrompt">User Prompt</label>
-    <textarea id="userPrompt" rows="2" placeholder="用户提示词"></textarea>
-    <div class="hint">可用变量: {text} {sourceLang} {targetLang}</div>
-  </div>
-  <div class="form-group">
-    <label for="multiplePrompt">Multiple Prompt（批量翻译）</label>
-    <textarea id="multiplePrompt" rows="3" placeholder="批量翻译提示词"></textarea>
-    <div class="hint">可用变量: {text} {sourceLang} {targetLang}</div>
-  </div>
-  <button id="resetPrompts" class="small" style="color:#888">恢复默认 Prompt</button>
+      <!-- Provider section -->
+      <section id="sec-provider">
+        <h2>模型服务商</h2>
+        <div class="section-sub">任何兼容 OpenAI Chat Completions 格式的 API 服务。OpenAI、DeepSeek、Moonshot、Ollama 等皆可。</div>
 
-  <div class="btn-group">
-    <button id="saveBtn" class="primary">保存偏好设置</button>
-    <span id="saveResult"></span>
+        <div id="providerList"></div>
+        <button id="addProviderBtn" class="small">＋ 添加服务商</button>
+
+        <div id="providerForm" class="provider-form" style="display:none; margin-top: 12px">
+          <h3 id="pfTitle">添加服务商</h3>
+          <input type="hidden" id="pfId">
+
+          <div class="field">
+            <div class="field-head"><label>预设</label><span class="hint">点击快速填充 Endpoint</span></div>
+            <div class="preset-row">
+              <div class="preset-chip" data-preset="openai">OpenAI</div>
+              <div class="preset-chip" data-preset="deepseek">DeepSeek</div>
+              <div class="preset-chip" data-preset="ollama">Ollama (本地)</div>
+              <div class="preset-chip" data-preset="custom">自定义</div>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-head"><label for="pfName">服务商名称</label></div>
+            <input type="text" id="pfName" placeholder="例如：OpenAI、DeepSeek、Ollama">
+          </div>
+          <div class="field">
+            <div class="field-head"><label for="pfEndpoint">API Endpoint</label><span class="hint">OpenAI 兼容</span></div>
+            <input type="text" id="pfEndpoint" class="mono" placeholder="https://api.openai.com/v1">
+          </div>
+          <div class="field">
+            <div class="field-head"><label for="pfApiKey">API Key</label><span class="hint">仅存本机，不同步到云端</span></div>
+            <input type="password" id="pfApiKey" class="mono" placeholder="sk-...">
+          </div>
+          <div class="field">
+            <div class="field-head"><label for="pfTemperature">Temperature</label><span class="hint">0 – 2，越低越稳定</span></div>
+            <input type="number" id="pfTemperature" class="mono" min="0" max="2" step="0.1" placeholder="0.2">
+          </div>
+          <div class="btn-group" style="margin-top:14px">
+            <button id="testProviderBtn" class="small">测试连接</button>
+            <span id="testProviderResult"></span>
+            <div style="flex:1"></div>
+            <button id="cancelProviderBtn" class="small">取消</button>
+            <button id="saveProviderBtn" class="small primary">保存</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Display section -->
+      <section id="sec-display">
+        <h2>翻译 & 显示</h2>
+        <div class="section-sub">译文的语言、排版，以及它与原文的关系。</div>
+
+        <div class="field">
+          <div class="field-head"><label>显示方式</label></div>
+          <div class="preview-row">
+            <div class="preview-card" data-display="bilingual" id="pv-bilingual">
+              <div class="preview-stack">
+                <div class="preview-line"></div>
+                <div class="preview-line tr"></div>
+                <div class="preview-line" style="opacity: 0.65"></div>
+                <div class="preview-line tr" style="opacity: 0.45"></div>
+              </div>
+              <div class="preview-card-label">
+                <span>双语对照</span>
+                <svg class="pv-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+                  <path d="M4 12l5 5 11-11"/>
+                </svg>
+              </div>
+            </div>
+            <div class="preview-card" data-display="replace" id="pv-replace">
+              <div class="preview-stack">
+                <div class="preview-line tr"></div>
+                <div class="preview-line tr" style="opacity: 0.45"></div>
+                <div class="preview-line tr" style="opacity: 0.65; width: 70%"></div>
+              </div>
+              <div class="preview-card-label">
+                <span>覆盖原文</span>
+                <svg class="pv-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+                  <path d="M4 12l5 5 11-11"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+          <select id="displayMode" style="display:none">
+            <option value="bilingual" selected>双语对照</option>
+            <option value="replace">覆盖原文</option>
+          </select>
+        </div>
+
+        <div class="field" id="positionField">
+          <div class="field-head"><label>译文位置</label><span class="hint">仅双语模式下生效</span></div>
+          <div class="chip-row">
+            <button type="button" class="chip-choice" data-position="below">原文之下</button>
+            <button type="button" class="chip-choice" data-position="above">原文之上</button>
+          </div>
+        </div>
+
+        <div class="row2">
+          <div class="field">
+            <div class="field-head"><label for="targetLang">目标语言</label></div>
+            <select id="targetLang">
+              <option value="zh-CN">简体中文</option>
+              <option value="zh-TW">繁体中文</option>
+              <option value="en">English</option>
+              <option value="ja">日本語</option>
+              <option value="ko">한국어</option>
+              <option value="fr">Français</option>
+              <option value="de">Deutsch</option>
+              <option value="es">Español</option>
+              <option value="ru">Русский</option>
+            </select>
+          </div>
+          <div class="field">
+            <div class="field-head"><label for="cacheExpiry">缓存过期时间</label><span class="hint">小时</span></div>
+            <input type="number" id="cacheExpiry" min="1" max="8760" value="168">
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-head"><label for="maxConcurrency">并发翻译数</label><span class="hint" id="concurrencyValue">3</span></div>
+          <input type="range" id="maxConcurrency" min="1" max="10" value="3" style="padding: 8px 0; accent-color: var(--accent);">
+        </div>
+
+        <div class="field">
+          <div class="field-head"><label>Bubble 样式</label></div>
+          <div class="bubble-row">
+            <div class="bubble-card" data-bubble="bare">
+              <div class="mini mini-bare">译文</div>
+              <div class="label">无框</div>
+            </div>
+            <div class="bubble-card" data-bubble="frosted">
+              <div class="mini mini-frosted">译文</div>
+              <div class="label">磨砂</div>
+            </div>
+            <div class="bubble-card" data-bubble="rounded">
+              <div class="mini mini-rounded">译文</div>
+              <div class="label">左轨</div>
+            </div>
+            <div class="bubble-card" data-bubble="solid">
+              <div class="mini mini-solid">译文</div>
+              <div class="label">纯色</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-head"><label for="fontScale">字号</label><span class="hint" id="fontScaleValue">100%</span></div>
+          <input type="range" id="fontScale" min="0.8" max="1.3" step="0.05" value="1.0" style="accent-color: var(--accent); width: 100%;">
+          <div class="type-preview" id="typePreview" style="margin-top: 10px; font-size: 16px;">
+            <div class="tp-orig">The quick brown fox jumps over the lazy dog.</div>
+            <div class="tp-tr">敏捷的棕色狐狸跃过了那只懒狗。</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Triggers section -->
+      <section id="sec-triggers">
+        <h2>触发器</h2>
+        <div class="section-sub">什么时候、以什么方式触发翻译。</div>
+
+        <div class="trigger-card" id="trg-fullpage">
+          <div class="trigger-card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6 3h9l4 4v14H6z M15 3v4h4"/>
+            </svg>
+          </div>
+          <div class="trigger-card-body">
+            <div class="trigger-card-label">全文翻译</div>
+            <div class="trigger-card-desc">在悬浮球或扩展图标中触发。可指定快捷键。</div>
+          </div>
+          <div class="kbd-group">
+            <span class="kbd">Alt</span>
+            <span class="kbd">T</span>
+          </div>
+        </div>
+
+        <div class="trigger-card on" id="trg-hover">
+          <div class="trigger-card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4l7 16 2-7 7-2z"/>
+            </svg>
+          </div>
+          <div class="trigger-card-body">
+            <div class="trigger-card-label">悬浮翻译</div>
+            <div class="trigger-card-desc">按住指定快捷键并悬停段落时翻译该段。再按一次还原。</div>
+          </div>
+          <div class="kbd-group">
+            <span class="kbd" id="kbd-hover">Ctrl</span>
+            <span class="kbd-label">+ hover</span>
+          </div>
+          <div class="tg-switch" id="hoverModeSwitch" role="switch" aria-checked="true" tabindex="0" title="启用 / 关闭悬浮翻译"></div>
+        </div>
+
+        <div class="field" style="margin-top: 14px">
+          <div class="field-head"><label>悬浮翻译显示方式</label></div>
+          <div class="preview-row" style="grid-template-columns: repeat(2, 1fr);">
+            <div class="preview-card" data-hoverdisp="inline" id="hd-inline">
+              <div class="preview-stack">
+                <div class="preview-line"></div>
+                <div class="preview-line tr"></div>
+              </div>
+              <div class="preview-card-label">
+                <span>内联注入</span>
+                <svg class="hd-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+                  <path d="M4 12l5 5 11-11"/>
+                </svg>
+              </div>
+            </div>
+            <div class="preview-card" data-hoverdisp="popover" id="hd-popover">
+              <div class="preview-stack" style="align-items: center;">
+                <div class="preview-line"></div>
+                <div style="width: 50%; height: 20px; border-radius: 4px; background: var(--surface); border: 1px solid var(--glass-border); box-shadow: 0 3px 6px rgba(0,0,0,0.08);"></div>
+              </div>
+              <div class="preview-card-label">
+                <span>浮层弹窗</span>
+                <svg class="hd-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+                  <path d="M4 12l5 5 11-11"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+          <select id="hoverDisplay" style="display:none">
+            <option value="inline" selected>内联注入</option>
+            <option value="popover">浮层弹窗</option>
+          </select>
+        </div>
+
+        <div class="trigger-card on" id="trg-selection">
+          <div class="trigger-card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4h4M16 4h4M4 20h4M16 20h4M4 10v4M20 10v4"/>
+            </svg>
+          </div>
+          <div class="trigger-card-body">
+            <div class="trigger-card-label">划词翻译</div>
+            <div class="trigger-card-desc">选中文字后在选区右下角显示翻译按钮。点击按钮打开译文浮层。</div>
+          </div>
+          <div class="tg-switch" id="selectionModeSwitch" role="switch" aria-checked="true" tabindex="0" title="启用 / 关闭划词翻译"></div>
+        </div>
+
+        <div class="row2" style="margin-top: 18px;">
+          <div class="field">
+            <div class="field-head"><label for="hoverKey">悬浮翻译快捷键</label></div>
+            <select id="hoverKey">
+              <option value="Control">Ctrl</option>
+              <option value="Alt">Alt</option>
+              <option value="Shift">Shift</option>
+              <option value="Meta">Meta (⌘/Win)</option>
+            </select>
+          </div>
+          <div class="field">
+            <div class="field-head"><label for="fabSize">悬浮球大小</label></div>
+            <select id="fabSize">
+              <option value="small">小</option>
+              <option value="medium" selected>中</option>
+              <option value="large">大</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <!-- Prompts section -->
+      <section id="sec-prompts">
+        <h2>Prompt 模板</h2>
+        <div class="section-sub">可用变量: <code style="font-family:ui-monospace,Menlo,monospace; padding: 1px 5px; background: var(--surface-soft); border-radius: 4px;">{sourceLang}</code> <code style="font-family:ui-monospace,Menlo,monospace; padding: 1px 5px; background: var(--surface-soft); border-radius: 4px;">{targetLang}</code> <code style="font-family:ui-monospace,Menlo,monospace; padding: 1px 5px; background: var(--surface-soft); border-radius: 4px;">{text}</code></div>
+
+        <div class="field">
+          <div class="field-head"><label for="systemPrompt">System Prompt</label></div>
+          <textarea id="systemPrompt" rows="3" placeholder="系统提示词"></textarea>
+        </div>
+        <div class="field">
+          <div class="field-head"><label for="userPrompt">User Prompt</label></div>
+          <textarea id="userPrompt" rows="2" placeholder="用户提示词"></textarea>
+        </div>
+        <div class="field">
+          <div class="field-head"><label for="multiplePrompt">Multiple Prompt</label><span class="hint">批量翻译</span></div>
+          <textarea id="multiplePrompt" rows="3" placeholder="批量翻译提示词"></textarea>
+        </div>
+        <button id="resetPrompts" class="small ghost" style="color: var(--muted)">恢复默认 Prompt</button>
+      </section>
+
+      <!-- Cache section -->
+      <section id="sec-cache">
+        <h2>缓存</h2>
+        <div class="section-sub">翻译缓存保存在本地 IndexedDB，不离开你的电脑。</div>
+
+        <div class="stat-row">
+          <div class="stat-card">
+            <div class="stat-label">总大小</div>
+            <div class="stat-value" id="cache-size">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">条目数</div>
+            <div class="stat-value" id="cache-count">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">站点数</div>
+            <div class="stat-value" id="cache-sites">—</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-head"><label>过期时长</label><span class="hint">自动清理超过此时长的缓存</span></div>
+          <div class="chip-row" id="expiryChips">
+            <div class="chip-choice" data-hours="168">7 天</div>
+            <div class="chip-choice" data-hours="720">30 天</div>
+            <div class="chip-choice" data-hours="2160">90 天</div>
+            <div class="chip-choice" data-hours="0">永不</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-head"><label>按站点</label><span class="hint" id="cache-host-count">—</span></div>
+          <div class="data-table" id="cacheSiteTable">
+            <div class="empty-state">暂无缓存数据</div>
+          </div>
+        </div>
+
+        <div class="btn-group" style="margin-top: 14px;">
+          <button id="cacheRefreshBtn" class="small ghost">刷新统计</button>
+          <button id="cacheClearAllBtn" class="small" style="color: var(--danger); border-color: var(--danger);">清空全部缓存</button>
+        </div>
+      </section>
+
+      <!-- Languages section -->
+      <section id="sec-languages">
+        <h2>语言对</h2>
+        <div class="section-sub">保存常用的"原文 → 译文"组合，列表中点选即可切换当前生效的语言对。</div>
+
+        <div class="data-table" id="langPairTable">
+          <div class="empty-state">暂无语言对</div>
+        </div>
+
+        <div class="lang-add" style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; margin-top: 12px;">
+          <select id="langAddFrom">
+            <option value="auto">自动检测</option>
+            <option value="en">English</option>
+            <option value="ja">日本語</option>
+            <option value="ko">한국어</option>
+            <option value="zh-CN">简体中文</option>
+            <option value="zh-TW">繁体中文</option>
+            <option value="fr">Français</option>
+            <option value="de">Deutsch</option>
+            <option value="es">Español</option>
+            <option value="ru">Русский</option>
+          </select>
+          <select id="langAddTo">
+            <option value="zh-CN">简体中文</option>
+            <option value="zh-TW">繁体中文</option>
+            <option value="en">English</option>
+            <option value="ja">日本語</option>
+            <option value="ko">한국어</option>
+            <option value="fr">Français</option>
+            <option value="de">Deutsch</option>
+            <option value="es">Español</option>
+            <option value="ru">Русский</option>
+          </select>
+          <button id="langPairAddBtn" class="small primary">+ 添加</button>
+        </div>
+      </section>
+
+      <!-- Sites section -->
+      <section id="sec-sites">
+        <h2>站点规则</h2>
+        <div class="section-sub">针对指定域名的翻译行为。</div>
+
+        <div class="data-table" id="siteTable">
+          <div class="empty-state">暂无规则</div>
+        </div>
+
+        <div class="site-add">
+          <input type="text" id="siteAddInput" placeholder="例如：example.com">
+          <button class="small" data-rule="always" id="siteAddAlways">总是翻译</button>
+          <button class="small" data-rule="never" id="siteAddNever">永不翻译</button>
+        </div>
+      </section>
+
+      <div class="btn-group" style="padding-top: 24px; border-top: 1px solid var(--rule);">
+        <button id="saveBtn" class="primary">保存偏好设置</button>
+        <span id="saveResult"></span>
+      </div>
+    </main>
   </div>
 
   <script type="module" src="./main.ts"></script>

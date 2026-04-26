@@ -1,4 +1,4 @@
-import type { ApiConfig, ProviderConfig, ModelConfig, UserPreferences, PromptConfig } from '../types';
+import type { ApiConfig, ProviderConfig, ModelConfig, UserPreferences, PromptConfig, LanguagePair } from '../types';
 import { DEFAULT_API_CONFIG, DEFAULT_PREFERENCES, DEFAULT_PROMPTS } from './defaults';
 
 // =============================================
@@ -103,6 +103,7 @@ export async function getApiConfig(): Promise<ApiConfig> {
     endpoint: provider.endpoint,
     apiKey: provider.apiKey,
     model: model?.name || '',
+    temperature: provider.temperature,
   };
 }
 
@@ -161,16 +162,56 @@ export async function setActiveModelId(id: string): Promise<void> {
 }
 
 // =============================================
-// User preferences (chrome.storage.sync)
+// User preferences (chrome.storage.sync, with local fallback on quota overflow)
 // =============================================
 
+const PREF_KEYS = [
+  'targetLanguage', 'cacheExpiry', 'hoverMode', 'selectionMode', 'maxConcurrency',
+  'prompts', 'hoverKey', 'fabSize', 'displayMode', 'siteRules', 'themeMode',
+  'accentHue', 'bubbleStyle', 'fontScale', 'hoverDisplay', 'translationPosition',
+  'languagePairs', 'activePairIndex',
+];
+const PREFS_BACKEND_KEY = 'ftPrefsBackend'; // value: 'sync' | 'local'
+
+/** Read prefs from the sticky backend (sync by default; local if a previous save overflowed). */
+async function readPreferenceRaw(): Promise<Record<string, unknown>> {
+  // Backend marker lives in local — local can always answer immediately
+  const marker = await chrome.storage.local.get([PREFS_BACKEND_KEY]);
+  if (marker[PREFS_BACKEND_KEY] === 'local') {
+    return chrome.storage.local.get(PREF_KEYS);
+  }
+  // Default path: read from sync, merge with any previously local-only keys
+  const [syncResult, localResult] = await Promise.all([
+    chrome.storage.sync.get(PREF_KEYS),
+    chrome.storage.local.get(PREF_KEYS),
+  ]);
+  // Local wins per-key only if sync doesn't have it (handles partial overflows)
+  const merged: Record<string, unknown> = { ...localResult };
+  for (const k of PREF_KEYS) {
+    if (syncResult[k] !== undefined) merged[k] = syncResult[k];
+  }
+  return merged;
+}
+
 export async function getPreferences(): Promise<UserPreferences> {
-  const result = await chrome.storage.sync.get(['targetLanguage', 'cacheExpiry', 'hoverMode', 'maxConcurrency', 'prompts', 'hoverKey', 'fabSize']);
+  const result = await readPreferenceRaw();
   const savedPrompts = result.prompts as Partial<PromptConfig> | undefined;
+
+  // Migrate legacy single targetLanguage → first language pair
+  let languagePairs = result.languagePairs as LanguagePair[] | undefined;
+  if (!Array.isArray(languagePairs) || languagePairs.length === 0) {
+    const legacy = (result.targetLanguage as string) || DEFAULT_PREFERENCES.targetLanguage;
+    languagePairs = [{ from: 'auto', to: legacy }];
+  }
+  const activePairIndex = typeof result.activePairIndex === 'number'
+    ? Math.min(Math.max(0, result.activePairIndex), languagePairs.length - 1)
+    : 0;
+
   return {
     targetLanguage: (result.targetLanguage as string) || DEFAULT_PREFERENCES.targetLanguage,
     cacheExpiry: (result.cacheExpiry as number) ?? DEFAULT_PREFERENCES.cacheExpiry,
     hoverMode: (result.hoverMode as boolean) ?? DEFAULT_PREFERENCES.hoverMode,
+    selectionMode: (result.selectionMode as boolean) ?? DEFAULT_PREFERENCES.selectionMode,
     maxConcurrency: (result.maxConcurrency as number) ?? DEFAULT_PREFERENCES.maxConcurrency,
     prompts: {
       systemPrompt: savedPrompts?.systemPrompt || DEFAULT_PROMPTS.systemPrompt,
@@ -179,17 +220,72 @@ export async function getPreferences(): Promise<UserPreferences> {
     },
     hoverKey: (result.hoverKey as string) || DEFAULT_PREFERENCES.hoverKey,
     fabSize: (result.fabSize as 'small' | 'medium' | 'large') || DEFAULT_PREFERENCES.fabSize,
+    displayMode: (result.displayMode as 'bilingual' | 'replace') || DEFAULT_PREFERENCES.displayMode,
+    siteRules: (result.siteRules as Record<string, 'always' | 'never'>) || {},
+    themeMode: (result.themeMode as 'light' | 'dark') || DEFAULT_PREFERENCES.themeMode,
+    accentHue: (result.accentHue as 'aurora' | 'sunset' | 'forest') || DEFAULT_PREFERENCES.accentHue,
+    bubbleStyle: (result.bubbleStyle as 'frosted' | 'rounded' | 'solid' | 'bare') || DEFAULT_PREFERENCES.bubbleStyle,
+    fontScale: (typeof result.fontScale === 'number' ? result.fontScale : DEFAULT_PREFERENCES.fontScale),
+    hoverDisplay: (result.hoverDisplay as 'inline' | 'popover') || DEFAULT_PREFERENCES.hoverDisplay,
+    translationPosition: (result.translationPosition as 'below' | 'above') || DEFAULT_PREFERENCES.translationPosition,
+    languagePairs,
+    activePairIndex,
   };
 }
 
 export async function savePreferences(prefs: UserPreferences): Promise<void> {
-  await chrome.storage.sync.set({
-    targetLanguage: prefs.targetLanguage,
+  // Keep targetLanguage in lockstep with the active pair so older code paths still work
+  const active = prefs.languagePairs?.[prefs.activePairIndex];
+  const targetLanguage = active?.to || prefs.targetLanguage;
+
+  const payload = {
+    targetLanguage,
     cacheExpiry: prefs.cacheExpiry,
     hoverMode: prefs.hoverMode,
+    selectionMode: prefs.selectionMode,
     maxConcurrency: prefs.maxConcurrency,
     prompts: prefs.prompts,
     hoverKey: prefs.hoverKey,
     fabSize: prefs.fabSize,
-  });
+    displayMode: prefs.displayMode,
+    siteRules: prefs.siteRules,
+    themeMode: prefs.themeMode,
+    accentHue: prefs.accentHue,
+    bubbleStyle: prefs.bubbleStyle,
+    fontScale: prefs.fontScale,
+    hoverDisplay: prefs.hoverDisplay,
+    translationPosition: prefs.translationPosition,
+    languagePairs: prefs.languagePairs,
+    activePairIndex: prefs.activePairIndex,
+  };
+
+  try {
+    await chrome.storage.sync.set(payload);
+    // Successful sync write — clear any prior local fallback marker
+    const marker = await chrome.storage.local.get([PREFS_BACKEND_KEY]);
+    if (marker[PREFS_BACKEND_KEY]) {
+      await chrome.storage.local.remove([PREFS_BACKEND_KEY]);
+    }
+  } catch (err) {
+    // chrome.storage.sync has hard quotas (8KB per item, 100KB total).
+    // On overflow, persist to local AND mark the backend so the next read
+    // knows to look in local instead of sync.
+    const msg = (err as Error)?.message || '';
+    if (msg.includes('QUOTA') || msg.includes('quota') || msg.includes('MAX_')) {
+      console.warn('[fuzzy-translate] sync quota exceeded — switching preferences to chrome.storage.local');
+      await chrome.storage.local.set({ ...payload, [PREFS_BACKEND_KEY]: 'local' });
+    } else {
+      throw err;
+    }
+  }
+}
+
+/** Resolve the currently active language pair, with sensible fallbacks. */
+export function getActivePair(prefs: UserPreferences): LanguagePair {
+  const list = prefs.languagePairs;
+  if (Array.isArray(list) && list.length > 0) {
+    const idx = Math.min(Math.max(0, prefs.activePairIndex || 0), list.length - 1);
+    return list[idx];
+  }
+  return { from: 'auto', to: prefs.targetLanguage || 'zh-CN' };
 }

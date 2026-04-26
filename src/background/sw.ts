@@ -1,6 +1,6 @@
 import type { Message } from '../shared/messaging';
 import { handleTranslatePort } from './translate-handler';
-import { cacheClearExpired, cacheClear } from './cache/cache-manager';
+import { cacheClearExpired, cacheClear, cacheStats, cacheClearByHost } from './cache/cache-manager';
 
 console.log('Fuzzy Translate Background SW loaded');
 
@@ -26,6 +26,19 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
   }
   if ((message as any).type === 'CLEAR_PAGE_CACHE') {
     cacheClear().catch(err => console.error('Failed to clear cache:', err));
+  }
+  if ((message as any).type === 'GET_CACHE_STATS') {
+    cacheStats().then(stats => sendResponse({ status: 'ok', stats })).catch(() => sendResponse({ status: 'error' }));
+    return true; // async response
+  }
+  if ((message as any).type === 'CLEAR_ALL_CACHE') {
+    cacheClear().then(() => sendResponse({ status: 'ok' })).catch(() => sendResponse({ status: 'error' }));
+    return true;
+  }
+  if ((message as any).type === 'CLEAR_HOST_CACHE') {
+    const host = (message as any).host as string;
+    cacheClearByHost(host).then(n => sendResponse({ status: 'ok', deleted: n })).catch(() => sendResponse({ status: 'error' }));
+    return true;
   }
   sendResponse({ status: 'ok' });
   return true;

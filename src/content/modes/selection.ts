@@ -1,7 +1,8 @@
 import { showSelectionPopup, removeSelectionPopup } from '../dom/selection-popup';
 import { connectTranslatePort } from '../../shared/messaging';
 import { detectSourceLanguage, isTargetLanguage } from '../../shared/i18n/language-detect';
-import { getPreferences } from '../../shared/config/storage';
+import { getPreferences, getActivePair } from '../../shared/config/storage';
+import { isExtensionAlive } from '../ext-guard';
 import type { PortMessage } from '../../shared/messaging';
 
 const MIN_SELECTION_LENGTH = 2;
@@ -45,7 +46,8 @@ function handleMouseUp(_e: MouseEvent): void {
 
     // Skip if selected text is already in target language
     getPreferences().then(prefs => {
-      if (isTargetLanguage(text, prefs.targetLanguage)) return;
+      const pair = getActivePair(prefs);
+      if (isTargetLanguage(text, pair.to)) return;
 
       const range = selection!.getRangeAt(0);
       const rect = range.getBoundingClientRect();
@@ -60,7 +62,12 @@ function showTriggerBtn(rect: DOMRect, text: string, range?: Range): void {
 
   triggerBtn = document.createElement('div');
   triggerBtn.id = 'ft-selection-trigger';
-  triggerBtn.innerHTML = '🌐';
+  triggerBtn.innerHTML = `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+      <path d="M3 6h10M8 4v2M5 6c0 5 3 8 7 8M13 6c-1 4-4 7-8 8"/>
+      <path d="M13 21l4-10 4 10M14.5 17.5h5"/>
+    </svg>
+  `;
   triggerBtn.title = '翻译';
 
   // Position at the end of the last line of selection (right side)
@@ -85,18 +92,29 @@ function showTriggerBtn(rect: DOMRect, text: string, range?: Range): void {
     top: ${top}px;
     width: 30px;
     height: 30px;
-    border-radius: 50%;
-    background: #fff;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    border-radius: 9px;
+    background: oklch(1 0 0 / 0.95);
+    backdrop-filter: blur(16px) saturate(160%);
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+    border: 1px solid oklch(0.30 0.01 260 / 0.12);
+    box-shadow: 0 6px 18px -6px rgba(20,20,40,0.35), inset 0 1px 0 oklch(1 0 0 / 0.70);
+    color: oklch(0.42 0.14 248);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 16px;
     cursor: pointer;
     z-index: 2147483646;
     user-select: none;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    animation: ft-trigger-pop 0.16s ease-out;
   `;
+  // Inject keyframes once via a style tag on the element itself (Shadow-free but scoped by id)
+  if (!document.getElementById('ft-trigger-keyframes')) {
+    const style = document.createElement('style');
+    style.id = 'ft-trigger-keyframes';
+    style.textContent = '@keyframes ft-trigger-pop { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }';
+    document.head.appendChild(style);
+  }
 
   triggerBtn.addEventListener('mouseenter', () => {
     if (triggerBtn) triggerBtn.style.transform = 'scale(1.15)';
@@ -128,7 +146,22 @@ async function startTranslation(rect: DOMRect, text: string): Promise<void> {
 
   try {
     const prefs = await getPreferences();
-    const sourceLang = detectSourceLanguage();
+    const pair = getActivePair(prefs);
+    const sourceLang = pair.from === 'auto' ? detectSourceLanguage() : pair.from;
+    const targetLang = pair.to;
+
+    // Show current model name in popup footer
+    if (isExtensionAlive()) {
+      try {
+        const result = await chrome.storage.local.get(['providers', 'activeProviderId', 'activeModelId']);
+        const providers = result.providers as any[] | undefined;
+        if (providers) {
+          const p = providers.find((x: any) => x.id === result.activeProviderId) || providers[0];
+          const m = p?.models?.find((x: any) => x.id === result.activeModelId) || p?.models?.[0];
+          if (m?.name) popup.setModel(m.name);
+        }
+      } catch { /* ignore */ }
+    }
 
     const port = connectTranslatePort();
 
@@ -136,7 +169,7 @@ async function startTranslation(rect: DOMRect, text: string): Promise<void> {
       switch (msg.type) {
         case 'translate_cached':
           popup.updateTranslation(msg.data.translation);
-          popup.setComplete();
+          popup.setCached();
           port.disconnect();
           break;
         case 'translate_chunk':
@@ -164,7 +197,7 @@ async function startTranslation(rect: DOMRect, text: string): Promise<void> {
         text,
         hash: '',
         sourceLang,
-        targetLang: prefs.targetLanguage,
+        targetLang,
       }
     } as PortMessage);
 
@@ -186,5 +219,18 @@ function isInsideFtElement(node: Node): boolean {
   return false;
 }
 
-// Auto-enable on load
-enableSelectionMode();
+// Enable based on user preference (default on)
+getPreferences().catch(() => null).then(prefs => {
+  if (prefs && prefs.selectionMode !== false) enableSelectionMode();
+});
+
+// React to pref changes
+if (isExtensionAlive()) {
+  chrome.storage.onChanged.addListener((changes) => {
+    if (changes.selectionMode !== undefined) {
+      const newVal = changes.selectionMode.newValue as boolean;
+      if (newVal && !isEnabled) enableSelectionMode();
+      else if (!newVal && isEnabled) disableSelectionMode();
+    }
+  });
+}

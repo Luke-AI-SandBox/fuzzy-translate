@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Fuzzy Translate",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "沉浸式网页翻译，支持自定义 AI 模型 API",
   "permissions": ["activeTab", "storage", "alarms"],
   "host_permissions": ["<all_urls>"],
@@ -32,7 +32,7 @@
     "128": "public/icons/icon-128.png"
   },
   "web_accessible_resources": [{
-    "resources": ["public/icons/logo-fab.png"],
+    "resources": ["public/icons/logo-fab.png", "public/fonts/*.woff2"],
     "matches": ["<all_urls>"]
   }],
   "commands": {

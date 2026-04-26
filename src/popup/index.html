@@ -5,30 +5,343 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Fuzzy Translate</title>
   <style>
-    body { width: 300px; padding: 16px; font-family: system-ui, sans-serif; margin: 0; }
-    h1 { font-size: 16px; margin: 0 0 12px; }
-    button { width: 100%; padding: 10px; margin: 4px 0; border: 1px solid #ddd; border-radius: 6px; background: #fff; cursor: pointer; font-size: 14px; }
-    button:hover { background: #f5f5f5; }
-    button.primary { background: #4A90D9; color: white; border-color: #4A90D9; }
-    button.primary:hover { background: #357ABD; }
-    .status { font-size: 12px; color: #666; margin-top: 8px; }
-    .divider { border-top: 1px solid #eee; margin: 12px 0; }
-    .warning { font-size: 12px; color: #856404; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; padding: 8px; margin-bottom: 8px; text-align: center; }
-    .warning a { color: #856404; font-weight: bold; }
-    .progress { height: 4px; background: #e9ecef; border-radius: 2px; margin-bottom: 8px; overflow: hidden; }
-    .progress-fill { height: 100%; background: #4A90D9; border-radius: 2px; width: 0%; transition: width 0.3s ease; }
+    /* Theme variables — injected dynamically by Popup.ts via <style id="ft-theme-vars"> */
+    :root {
+      --warn-bg: oklch(0.95 0.06 85 / 0.55);
+      --warn-border: oklch(0.72 0.13 70 / 0.45);
+      --warn-fg: oklch(0.48 0.12 60);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      width: 360px;
+      font-family: 'Geist', system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      color: var(--fg);
+      background: var(--wallpaper-grad);
+      -webkit-font-smoothing: antialiased;
+      position: relative;
+      overflow: hidden;
+    }
+    /* Blurred wallpaper orbs */
+    body::before, body::after {
+      content: ''; position: fixed; pointer-events: none;
+      border-radius: 50%; filter: blur(60px);
+      z-index: 0;
+    }
+    body::before {
+      width: 220px; height: 220px; left: -80px; top: -100px;
+      background: var(--orb-1); opacity: 0.55;
+    }
+    body::after {
+      width: 220px; height: 220px; right: -80px; bottom: -100px;
+      background: var(--orb-2); opacity: 0.4;
+    }
+
+    .card {
+      position: relative; z-index: 1;
+      background: var(--glass-bg);
+      backdrop-filter: blur(24px) saturate(160%);
+      -webkit-backdrop-filter: blur(24px) saturate(160%);
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      margin: 12px;
+      overflow: hidden;
+      box-shadow: 0 12px 30px -14px rgba(30,30,60,0.25), inset 0 1px 0 var(--glass-inner-hl);
+    }
+
+    /* Header */
+    .hdr {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px 12px;
+    }
+    .hdr-left { display: flex; align-items: center; gap: 10px; }
+    .brand-icon {
+      width: 30px; height: 30px; border-radius: 9px;
+      background: var(--accent-grad);
+      color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 10px -4px var(--accent);
+    }
+    .brand-icon svg { width: 17px; height: 17px; }
+    .brand-title { font-size: 14px; font-weight: 600; letter-spacing: -0.1px; }
+    .brand-meta {
+      font-size: 11px; color: var(--muted); margin-top: 1px;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .status-dot {
+      display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+      background: oklch(0.65 0.18 150);
+    }
+    .status-dot.warn { background: oklch(0.7 0.15 60); }
+
+    .hdr-right { display: flex; align-items: center; gap: 4px; }
+    .icon-btn {
+      width: 30px; height: 30px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--muted); background: transparent;
+      border: none; padding: 0; transition: background 0.15s, color 0.15s;
+    }
+    .icon-btn:hover { background: var(--surface-soft); color: var(--fg); }
+    .icon-btn svg { width: 16px; height: 16px; }
+    .icon-btn.active { color: var(--accent-fg); }
+
+    /* Accent + mode row: compact swatch buttons */
+    .theme-row {
+      display: flex; align-items: center; gap: 6px;
+      padding: 0 16px 10px;
+    }
+    .swatch {
+      width: 22px; height: 22px; border-radius: 7px;
+      cursor: pointer; border: 1.5px solid transparent;
+      transition: border-color 0.15s, transform 0.1s;
+    }
+    .swatch:hover { transform: scale(1.08); }
+    .swatch.active { border-color: var(--fg); }
+    .swatch.aurora { background: linear-gradient(135deg, oklch(0.62 0.14 248), oklch(0.78 0.14 308)); }
+    .swatch.sunset { background: linear-gradient(135deg, oklch(0.62 0.14 24), oklch(0.78 0.14 84)); }
+    .swatch.forest { background: linear-gradient(135deg, oklch(0.62 0.14 152), oklch(0.78 0.14 212)); }
+
+    .divider { height: 1px; background: var(--glass-border); }
+
+    /* Warning */
+    .warn {
+      margin: 0 16px 12px;
+      padding: 10px 12px;
+      background: var(--warn-bg);
+      border: 1px solid var(--warn-border);
+      border-radius: 10px;
+      font-size: 12px; color: var(--warn-fg);
+      display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    }
+    .warn a { color: var(--warn-fg); font-weight: 600; text-decoration: underline; cursor: pointer; }
+
+    /* Big toggle */
+    .toggle-big {
+      margin: 12px 16px 10px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: var(--surface-soft);
+      border: 1px solid var(--glass-border);
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .toggle-big.active { background: var(--accent-soft); border-color: var(--accent-rule); }
+    .toggle-big[disabled] { opacity: 0.5; cursor: not-allowed; }
+    .toggle-big-label { font-size: 13px; font-weight: 600; }
+    .toggle-big.active .toggle-big-label { color: var(--accent-fg); }
+    .toggle-big-hint { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    /* Language pair */
+    .lang-pair { display: flex; gap: 8px; align-items: center; padding: 0 16px 14px; }
+    .lang-chip {
+      flex: 1; padding: 8px 12px; border-radius: 10px;
+      background: var(--surface-soft);
+      border: 1px solid var(--glass-border);
+      cursor: default;
+    }
+    .lang-chip.active { background: var(--accent-soft); border-color: var(--accent-rule); }
+    .lang-chip-label { font-size: 13px; font-weight: 500; }
+    .lang-chip.active .lang-chip-label { color: var(--accent-fg); }
+    .lang-chip-hint { font-size: 10px; color: var(--muted); margin-top: 1px; }
+    .lang-arrow { display: flex; align-items: center; justify-content: center; width: 20px; color: var(--muted); }
+
+    .progress { margin: -4px 16px 10px; height: 3px; border-radius: 2px; background: var(--rule); overflow: hidden; }
+    .progress-fill { height: 100%; width: 0%; background: var(--accent-grad); transition: width 0.4s; }
+
+    .switch {
+      position: relative; display: inline-block;
+      width: 34px; height: 20px; border-radius: 999px;
+      background: var(--rule);
+      transition: background 0.15s;
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.15);
+      flex-shrink: 0;
+    }
+    .switch::after {
+      content: ''; position: absolute; top: 2px; left: 2px;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: #fff; transition: left 0.15s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .switch.on { background: var(--accent); }
+    .switch.on::after { left: 16px; }
+
+    .rows { padding: 8px 8px 10px; }
+    .row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px; border-radius: 8px;
+      cursor: pointer; transition: background 0.15s;
+    }
+    .row:hover { background: var(--surface-soft); }
+    .row-icon {
+      width: 26px; height: 26px; border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--surface-soft);
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+    .row.on .row-icon { background: var(--accent-soft); color: var(--accent-fg); }
+    .row-icon svg { width: 14px; height: 14px; }
+    .row-body { flex: 1; min-width: 0; }
+    .row-label { font-size: 12.5px; font-weight: 500; color: var(--fg); }
+    .row-desc { font-size: 10.5px; color: var(--muted); margin-top: 1px; }
+
+    .site-footer {
+      padding: 10px 14px;
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    }
+    .site-info { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); overflow: hidden; }
+    .site-info svg { width: 14px; height: 14px; flex-shrink: 0; }
+    .site-info span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mini-btns { display: flex; gap: 6px; flex-shrink: 0; }
+    .mini-btn {
+      font-size: 11px; font-weight: 500;
+      padding: 4px 10px; border-radius: 7px;
+      background: var(--surface-soft);
+      color: var(--muted);
+      border: 1px solid var(--glass-border);
+      cursor: pointer; transition: all 0.15s;
+    }
+    .mini-btn:hover { color: var(--fg); background: var(--glass-bg-solid); }
+    .mini-btn.active { background: var(--accent-soft); color: var(--accent-fg); border-color: var(--accent-rule); }
+
+    .status-text {
+      font-size: 11px; color: var(--muted);
+      padding: 0 16px 10px;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    }
   </style>
+  <style id="ft-theme-vars"></style>
 </head>
 <body>
-  <h1>Fuzzy Translate</h1>
-  <div id="apiWarning" class="warning" style="display:none">请先配置 API<br><a href="#" id="goSettings">前往设置</a></div>
-  <div id="progressBar" class="progress" style="display:none"><div id="progressFill" class="progress-fill"></div></div>
-  <button id="translateBtn" class="primary">翻译此页</button>
-  <div class="divider"></div>
-  <button id="hoverToggle">悬浮翻译：关闭</button>
-  <div class="divider"></div>
-  <button id="optionsBtn">设置</button>
-  <div class="status" id="status"></div>
+  <div class="card">
+    <div class="hdr">
+      <div class="hdr-left">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6h10M8 4v2M5 6c0 5 3 8 7 8M13 6c-1 4-4 7-8 8"/>
+            <path d="M13 21l4-10 4 10M14.5 17.5h5"/>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-title">Fuzzy Translate</div>
+          <div class="brand-meta">
+            <span class="status-dot" id="connDot"></span>
+            <span id="connText">已连接</span>
+          </div>
+        </div>
+      </div>
+      <div class="hdr-right">
+        <button class="icon-btn" id="themeToggle" title="切换深色/浅色">
+          <svg id="themeIconLight" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.4 1.4M17.6 17.6L19 19M5 19l1.4-1.4M17.6 6.4L19 5"/>
+          </svg>
+          <svg id="themeIconDark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+            <path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/>
+          </svg>
+        </button>
+        <button class="icon-btn" id="optionsBtn" title="设置">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Accent swatches -->
+    <div class="theme-row">
+      <div class="swatch aurora" data-accent="aurora" title="Aurora"></div>
+      <div class="swatch sunset" data-accent="sunset" title="Sunset"></div>
+      <div class="swatch forest" data-accent="forest" title="Forest"></div>
+    </div>
+
+    <div class="warn" id="apiWarning" style="display:none">
+      <span>请先配置 API 服务商</span>
+      <a id="goSettings">前往设置 →</a>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="toggle-big" id="translateBtn">
+      <div>
+        <div class="toggle-big-label" id="translateLabel">翻译此页</div>
+        <div class="toggle-big-hint" id="translateHint">自动检测 → 中文</div>
+      </div>
+      <span class="switch" id="translateSwitch"></span>
+    </div>
+
+    <div class="lang-pair">
+      <div class="lang-chip">
+        <div class="lang-chip-label" id="sourceLangLabel">自动检测</div>
+        <div class="lang-chip-hint">源语言</div>
+      </div>
+      <div class="lang-arrow">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12h14M13 6l6 6-6 6"/>
+        </svg>
+      </div>
+      <div class="lang-chip active">
+        <div class="lang-chip-label" id="targetLangLabel">中文（简体）</div>
+        <div class="lang-chip-hint">目标语言</div>
+      </div>
+    </div>
+
+    <div class="progress" id="progressBar" style="display:none">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="rows">
+      <div class="row" id="hoverRow">
+        <div class="row-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 4l7 16 2-7 7-2z"/>
+          </svg>
+        </div>
+        <div class="row-body">
+          <div class="row-label">悬浮翻译</div>
+          <div class="row-desc" id="hoverDesc">按住 Ctrl 并悬停段落</div>
+        </div>
+        <span class="switch" id="hoverSwitch"></span>
+      </div>
+
+      <div class="row" id="selectionRow">
+        <div class="row-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 4h4M16 4h4M4 20h4M16 20h4M4 10v4M20 10v4"/>
+          </svg>
+        </div>
+        <div class="row-body">
+          <div class="row-label">划词翻译</div>
+          <div class="row-desc">选中文字后显示翻译按钮</div>
+        </div>
+        <span class="switch" id="selectionSwitch"></span>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="site-footer">
+      <div class="site-info">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>
+        </svg>
+        <span id="siteHost">当前站点</span>
+      </div>
+      <div class="mini-btns">
+        <button class="mini-btn" id="siteAlways" title="总是翻译此站点">总是</button>
+        <button class="mini-btn" id="siteNever" title="永不翻译此站点">永不</button>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="status-text" id="status">就绪</div>
+  </div>
   <script type="module" src="./main.ts"></script>
 </body>
 </html>

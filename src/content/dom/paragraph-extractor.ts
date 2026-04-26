@@ -32,6 +32,15 @@ const SKIP_ID_PATTERNS = /\b(nav|menu|sidebar|footer|header|toolbar|ad|ads|banne
 const MIN_TEXT_LENGTH = 20; // Raised from 10 to skip trivial UI labels
 const MAX_PARAGRAPH_LENGTH = 2000;
 
+// --- Known SPA content selectors (e.g. Twitter/X, Reddit) ---
+const KNOWN_CONTENT_SELECTORS = [
+  '[data-testid="tweetText"]',           // Twitter/X tweet body
+  '[data-testid="card.layoutSmall.detail"]',  // Twitter/X link preview
+  '[data-test-id="post-content"]',       // Reddit post content
+  '[data-click-id="text"]',              // Reddit comment text
+  '.tweet-text', '.post-text',           // Legacy
+];
+
 /**
  * Extract translatable paragraphs from the page.
  * Strategy: only grab leaf-level paragraph elements with meaningful text content.
@@ -44,6 +53,25 @@ export function extractParagraphs(): ParagraphInfo[] {
   // Try to find the main content area first
   const mainContent = document.querySelector('main, [role="main"], article, .article, .post, .content, .markdown-body, .entry-content, #content, #main')
     || document.body;
+
+  // Step 0: Check for known SPA content selectors (Twitter/X, Reddit, etc.)
+  // These are trusted — bypass normal nav filter since they're explicitly content
+  for (const sel of KNOWN_CONTENT_SELECTORS) {
+    const nodes = document.querySelectorAll(sel);
+    for (const node of nodes) {
+      const el = node as HTMLElement;
+      if (seen.has(el)) continue;
+      if (SKIP_TAGS.has(el.tagName)) continue;
+      if (el.hasAttribute('data-ft-id') || el.classList.contains('ft-translation')) continue;
+      if (hasAncestorInSet(el, seen)) continue;
+
+      const text = el.textContent?.trim() || '';
+      if (text.length < MIN_TEXT_LENGTH) continue;
+
+      seen.add(el);
+      addParagraph(paragraphs, el, text);
+    }
+  }
 
   // Step 1: Query semantic paragraph tags within main content
   const selector = Array.from(PARAGRAPH_TAGS).join(',');

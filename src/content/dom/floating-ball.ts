@@ -3,6 +3,7 @@
  * Supports drag, hover-expand, translate/clear/settings actions,
  * and a blue ring indicator when translation is active.
  */
+import { isExtensionAlive, safeSendMessage } from '../ext-guard';
 
 const SIZE_CONFIG = {
   small:  { fab: 32, menuItem: 32, menuRadius: 44, fontSize: 15 },
@@ -23,7 +24,13 @@ interface FabCallbacks {
 }
 
 function openOptionsPage() {
-  chrome.runtime.sendMessage({ type: 'OPEN_OPTIONS' });
+  safeSendMessage({ type: 'OPEN_OPTIONS' });
+}
+
+/** Resolve an extension-relative asset URL safely (returns empty string when context invalidated). */
+function safeAssetURL(path: string): string {
+  if (!isExtensionAlive()) return '';
+  try { return chrome.runtime.getURL(path); } catch { return ''; }
 }
 
 export function createFloatingBall(callbacks: FabCallbacks, initialSize: 'small' | 'medium' | 'large' = 'medium'): {
@@ -375,7 +382,7 @@ function buildHTML(): string {
 
     <div class="ft-fab">
       <div class="ft-fab-ring"></div>
-      <div class="ft-fab-logo"><img src="${chrome.runtime.getURL('public/icons/logo-fab.png')}" alt="FT" style="width:100%;height:100%;object-fit:contain;border-radius:50%;pointer-events:none;"></div>
+      <div class="ft-fab-logo"><img src="${safeAssetURL('public/icons/logo-fab.png')}" alt="FT" style="width:100%;height:100%;object-fit:contain;border-radius:50%;pointer-events:none;"></div>
       <div class="ft-fab-menu">
         ${menuItemsHTML}
       </div>

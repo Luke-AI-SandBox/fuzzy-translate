@@ -3,10 +3,11 @@ import {
   injectTranslation,
   updateTranslation,
   setTranslationStatus,
-  removeAllTranslations
+  removeAllTranslations,
+  prepareTextForApi
 } from '../dom/translation-injector';
 import { connectTranslatePort } from '../../shared/messaging';
-import { getPreferences } from '../../shared/config/storage';
+import { getPreferences, getActivePair } from '../../shared/config/storage';
 import { detectSourceLanguage } from '../../shared/i18n/language-detect';
 import type { ParagraphInfo } from '../../shared/types';
 import type { PortMessage } from '../../shared/messaging';
@@ -36,8 +37,9 @@ export async function toggleFullPageTranslation(): Promise<void> {
   abortController = new AbortController();
 
   const prefs = await getPreferences();
-  sourceLang = detectSourceLanguage();
-  targetLang = prefs.targetLanguage;
+  const pair = getActivePair(prefs);
+  sourceLang = pair.from === 'auto' ? detectSourceLanguage() : pair.from;
+  targetLang = pair.to;
   maxConcurrency = prefs.maxConcurrency;
 
   const paragraphs = extractParagraphs();
@@ -149,11 +151,12 @@ function translateOneParagraph(paragraph: ParagraphInfo): Promise<void> {
       }
     });
 
+    const textForApi = prepareTextForApi(paragraph.element, paragraph.text);
     port.postMessage({
       type: 'translate_request',
       data: {
         id: paragraph.id,
-        text: paragraph.text,
+        text: textForApi,
         hash: paragraph.hash,
         sourceLang,
         targetLang,

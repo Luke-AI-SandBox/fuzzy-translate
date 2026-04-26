@@ -19,7 +19,15 @@ interface TranslateRequestData extends SerializableParagraphInfo {
 }
 
 /** Handle a single paragraph translation request via Port. */
+/** Extract hostname from Port sender. Used to tag cache entries per-site. */
+function hostFromPort(port: chrome.runtime.Port): string | undefined {
+  const url = port.sender?.tab?.url || port.sender?.url;
+  if (!url) return undefined;
+  try { return new URL(url).hostname; } catch { return undefined; }
+}
+
 export async function handleTranslatePort(port: chrome.runtime.Port): Promise<void> {
+  const hostname = hostFromPort(port);
   let keepaliveInterval: ReturnType<typeof setInterval> | null = null;
 
   const cleanup = () => {
@@ -40,7 +48,7 @@ export async function handleTranslatePort(port: chrome.runtime.Port): Promise<vo
       const [config, prefs] = await Promise.all([getApiConfig(), getPreferences()]);
 
       if (!config.endpoint || !config.apiKey || !config.model) {
-        port.postMessage({ type: 'translate_error', data: 'API 未配置，请先在设置页面配置 API' } as PortMessage);
+        try { port.postMessage({ type: 'translate_error', data: 'API 未配置，请先在设置页面配置 API' } as PortMessage); } catch { /* port closed */ }
         return;
       }
 
@@ -69,7 +77,7 @@ export async function handleTranslatePort(port: chrome.runtime.Port): Promise<vo
 
       // --- Batch mode: multiple paragraphs in one API call ---
       if (request.isBatch) {
-        await handleBatchTranslation(port, request, config, prefs, sourceLang, targetLang);
+        await handleBatchTranslation(port, request, config, prefs, sourceLang, targetLang, hostname);
         return;
       }
 
@@ -110,9 +118,10 @@ export async function handleTranslatePort(port: chrome.runtime.Port): Promise<vo
         translation: cleanedTranslation,
         createdAt: Date.now(),
         expiresAt: prefs.cacheExpiry > 0 ? Date.now() + prefs.cacheExpiry * 3600 * 1000 : 0,
+        hostname,
       });
 
-      port.postMessage({ type: 'translate_done', data: { id: request.id, translation: cleanedTranslation } } as PortMessage);
+      try { port.postMessage({ type: 'translate_done', data: { id: request.id, translation: cleanedTranslation } } as PortMessage); } catch { /* port closed */ }
 
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -129,10 +138,11 @@ export async function handleTranslatePort(port: chrome.runtime.Port): Promise<vo
 async function handleBatchTranslation(
   port: chrome.runtime.Port,
   request: TranslateRequestData,
-  config: { endpoint: string; apiKey: string; model: string },
+  config: { endpoint: string; apiKey: string; model: string; temperature?: number },
   prefs: Awaited<ReturnType<typeof getPreferences>>,
   sourceLang: string,
   targetLang: string,
+  hostname?: string,
 ): Promise<void> {
   let keepaliveInterval: ReturnType<typeof setInterval> | null = null;
   const cleanup = () => {
@@ -175,6 +185,7 @@ async function handleBatchTranslation(
           { role: 'user', content: multiplePrompt },
         ],
         stream: true,
+        ...(typeof config.temperature === 'number' ? { temperature: config.temperature } : {}),
         thinking: { type: 'disabled' },
         reasoning_effort: 'none',
         enable_thinking: false,
@@ -280,11 +291,12 @@ async function handleBatchTranslation(
           translation,
           createdAt: Date.now(),
           expiresAt: prefs.cacheExpiry > 0 ? Date.now() + prefs.cacheExpiry * 3600 * 1000 : 0,
+          hostname,
         });
       }
     }
 
-    port.postMessage({ type: 'translate_done', data: { id: request.id, translation: cleanedResult } } as PortMessage);
+    try { port.postMessage({ type: 'translate_done', data: { id: request.id, translation: cleanedResult } } as PortMessage); } catch { /* port closed */ }
 
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
