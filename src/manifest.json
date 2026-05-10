@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Fuzzy Translate",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "沉浸式网页翻译，支持自定义 AI 模型 API",
   "permissions": ["activeTab", "storage", "alarms"],
   "host_permissions": ["<all_urls>"],
