@@ -70,11 +70,9 @@
    Hue is dynamic via --ft-accent-h (248 aurora / 24 sunset / 152 forest).
    ========================================================================== */
 
-/* --- Bare: minimal typography. No card. Just colored text + soft accent rule. --- */
+/* --- Bare: invisible wrapper. Inherits all typography from original. --- */
 .ft-bubble-bare {
-  margin-top: 6px;
-  padding-left: 10px;
-  border-left: 2px solid var(--ft-accent-edge, oklch(0.62 0.14 248 / 0.30));
+  margin-top: 4px;
 }
 
 /* --- Frosted: hero glass card with accent tint --- */

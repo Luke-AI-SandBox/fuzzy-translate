@@ -42,7 +42,17 @@ export async function toggleFullPageTranslation(): Promise<void> {
   targetLang = pair.to;
   maxConcurrency = prefs.maxConcurrency;
 
-  const paragraphs = extractParagraphs();
+  // X.com and other SPAs may not have rendered content yet — retry with backoff
+  let paragraphs = extractParagraphs();
+  if (paragraphs.length === 0) {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      await new Promise(r => setTimeout(r, 400 * (attempt + 1)));
+      if (!isTranslating) { isTranslating = false; return; }
+      paragraphs = extractParagraphs();
+      if (paragraphs.length > 0) break;
+    }
+  }
+
   if (paragraphs.length === 0) {
     isTranslating = false;
     return;

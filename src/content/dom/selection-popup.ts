@@ -52,15 +52,18 @@ export function showSelectionPopup(
         width: ${POPUP_WIDTH}px;
         max-height: ${POPUP_MAX_HEIGHT}px;
         display: flex; flex-direction: column; overflow: hidden;
-        background: var(--glass-bg);
-        backdrop-filter: blur(24px) saturate(160%);
-        -webkit-backdrop-filter: blur(24px) saturate(160%);
-        border: 1px solid var(--glass-border);
+        background: #ffffff;
+        border: 1px solid rgba(0,0,0,0.12);
         border-radius: 14px;
-        box-shadow: 0 16px 40px -12px rgba(20,20,40,0.28), inset 0 1px 0 var(--glass-inner-hl);
+        box-shadow: 0 8px 24px -8px rgba(0,0,0,0.10), 0 2px 6px -2px rgba(0,0,0,0.05);
         font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-        color: var(--fg);
+        color: #1a1a2e;
         animation: ft-pop 0.18s ease-out;
+      }
+      :host([data-ft-theme="dark"]) .ft-popup {
+        background: #1e1e2e;
+        border-color: rgba(255,255,255,0.12);
+        color: #e0e0f0;
       }
 
       @keyframes ft-pop {

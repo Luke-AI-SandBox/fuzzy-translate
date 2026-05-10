@@ -1,21 +1,34 @@
 import type { ApiConfig, ProviderConfig, ModelConfig, UserPreferences, PromptConfig, LanguagePair } from '../types';
 import { DEFAULT_API_CONFIG, DEFAULT_PREFERENCES, DEFAULT_PROMPTS } from './defaults';
 
+// Inline guard to avoid cross-directory import (ext-guard lives in content/)
+function isExtensionAlive(): boolean {
+  try { return Boolean(chrome?.runtime?.id); } catch { return false; }
+}
+
+/** Wrap a chrome.storage call so "Extension context invalidated" returns fallback instead of throwing. */
+async function safeStorage<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
+  if (!isExtensionAlive()) return fallback;
+  try { return await fn(); } catch (e) {
+    if ((e as Error)?.message?.includes('Extension context invalidated')) return fallback;
+    throw e;
+  }
+}
+
 // =============================================
 // Provider + Model storage (chrome.storage.local)
 // =============================================
 
 /** Get all provider configs */
 export async function getProviders(): Promise<ProviderConfig[]> {
-  const result = await chrome.storage.local.get(['providers']);
-  const providers = result.providers as ProviderConfig[] | undefined;
+  const result = await safeStorage(() => chrome.storage.local.get(['providers']), {} as Record<string, unknown>);
+  const providers = (result as Record<string, unknown>).providers as ProviderConfig[] | undefined;
   if (providers && providers.length > 0) return providers;
 
   // --- Migration from old modelConfigs format ---
-  const oldResult = await chrome.storage.local.get(['modelConfigs']);
+  const oldResult = await safeStorage(() => chrome.storage.local.get(['modelConfigs']), {} as Record<string, unknown>);
   const oldConfigs = oldResult.modelConfigs as ModelConfig[] | undefined;
   if (oldConfigs && oldConfigs.length > 0) {
-    // Group by endpoint+apiKey into providers
     const providerMap = new Map<string, ProviderConfig>();
     for (const m of oldConfigs) {
       const key = `${m.endpoint}||${m.apiKey}`;
@@ -34,8 +47,7 @@ export async function getProviders(): Promise<ProviderConfig[]> {
     }
     const migrated = Array.from(providerMap.values());
     await saveProviders(migrated);
-    // Migrate active selection
-    const oldActive = await chrome.storage.local.get(['activeModelId']);
+    const oldActive = await safeStorage(() => chrome.storage.local.get(['activeModelId']), {} as Record<string, unknown>);
     const oldActiveId = oldActive.activeModelId as string;
     if (oldActiveId) {
       const oldModel = oldConfigs.find(c => c.id === oldActiveId);
@@ -46,13 +58,12 @@ export async function getProviders(): Promise<ProviderConfig[]> {
         }
       }
     }
-    // Cleanup old keys
-    await chrome.storage.local.remove(['modelConfigs', 'activeModelId', 'endpoint', 'apiKey', 'model']);
+    await safeStorage(() => chrome.storage.local.remove(['modelConfigs', 'activeModelId', 'endpoint', 'apiKey', 'model']), undefined);
     return migrated;
   }
 
   // --- Migration from very old single-config format ---
-  const oldest = await chrome.storage.local.get(['endpoint', 'apiKey', 'model']);
+  const oldest = await safeStorage(() => chrome.storage.local.get(['endpoint', 'apiKey', 'model']), {} as Record<string, unknown>);
   if (oldest.endpoint || oldest.apiKey || oldest.model) {
     const modelId = 'model-' + Date.now();
     const provider: ProviderConfig = {
@@ -64,7 +75,7 @@ export async function getProviders(): Promise<ProviderConfig[]> {
     };
     await saveProviders([provider]);
     await setActiveSelection(provider.id, modelId);
-    await chrome.storage.local.remove(['endpoint', 'apiKey', 'model']);
+    await safeStorage(() => chrome.storage.local.remove(['endpoint', 'apiKey', 'model']), undefined);
     return [provider];
   }
 
@@ -73,21 +84,21 @@ export async function getProviders(): Promise<ProviderConfig[]> {
 
 /** Save all provider configs */
 export async function saveProviders(providers: ProviderConfig[]): Promise<void> {
-  await chrome.storage.local.set({ providers });
+  await safeStorage(() => chrome.storage.local.set({ providers }), undefined);
 }
 
 /** Get active provider ID + model ID */
 export async function getActiveSelection(): Promise<{ providerId: string; modelId: string }> {
-  const result = await chrome.storage.local.get(['activeProviderId', 'activeModelId']);
+  const result = await safeStorage(() => chrome.storage.local.get(['activeProviderId', 'activeModelId']), {} as Record<string, unknown>);
   return {
-    providerId: (result.activeProviderId as string) || '',
-    modelId: (result.activeModelId as string) || '',
+    providerId: (result as Record<string, unknown>).activeProviderId as string || '',
+    modelId: (result as Record<string, unknown>).activeModelId as string || '',
   };
 }
 
 /** Set active provider ID + model ID */
 export async function setActiveSelection(providerId: string, modelId: string): Promise<void> {
-  await chrome.storage.local.set({ activeProviderId: providerId, activeModelId: modelId });
+  await safeStorage(() => chrome.storage.local.set({ activeProviderId: providerId, activeModelId: modelId }), undefined);
 }
 
 /** Get the currently active ApiConfig (assembled from provider + model). All translation logic uses this. */
@@ -175,15 +186,15 @@ const PREFS_BACKEND_KEY = 'ftPrefsBackend'; // value: 'sync' | 'local'
 
 /** Read prefs from the sticky backend (sync by default; local if a previous save overflowed). */
 async function readPreferenceRaw(): Promise<Record<string, unknown>> {
-  // Backend marker lives in local — local can always answer immediately
-  const marker = await chrome.storage.local.get([PREFS_BACKEND_KEY]);
-  if (marker[PREFS_BACKEND_KEY] === 'local') {
-    return chrome.storage.local.get(PREF_KEYS);
+  if (!isExtensionAlive()) return {};
+  const marker = await safeStorage(() => chrome.storage.local.get([PREFS_BACKEND_KEY]), {} as Record<string, unknown>);
+  if ((marker as Record<string, unknown>)[PREFS_BACKEND_KEY] === 'local') {
+    return safeStorage(() => chrome.storage.local.get(PREF_KEYS), {});
   }
   // Default path: read from sync, merge with any previously local-only keys
   const [syncResult, localResult] = await Promise.all([
-    chrome.storage.sync.get(PREF_KEYS),
-    chrome.storage.local.get(PREF_KEYS),
+    safeStorage(() => chrome.storage.sync.get(PREF_KEYS), {}) as Promise<Record<string, unknown>>,
+    safeStorage(() => chrome.storage.local.get(PREF_KEYS), {}) as Promise<Record<string, unknown>>,
   ]);
   // Local wins per-key only if sync doesn't have it (handles partial overflows)
   const merged: Record<string, unknown> = { ...localResult };
@@ -234,7 +245,7 @@ export async function getPreferences(): Promise<UserPreferences> {
 }
 
 export async function savePreferences(prefs: UserPreferences): Promise<void> {
-  // Keep targetLanguage in lockstep with the active pair so older code paths still work
+  if (!isExtensionAlive()) return;
   const active = prefs.languagePairs?.[prefs.activePairIndex];
   const targetLanguage = active?.to || prefs.targetLanguage;
 
@@ -261,19 +272,16 @@ export async function savePreferences(prefs: UserPreferences): Promise<void> {
 
   try {
     await chrome.storage.sync.set(payload);
-    // Successful sync write — clear any prior local fallback marker
-    const marker = await chrome.storage.local.get([PREFS_BACKEND_KEY]);
-    if (marker[PREFS_BACKEND_KEY]) {
-      await chrome.storage.local.remove([PREFS_BACKEND_KEY]);
+    const marker = await safeStorage(() => chrome.storage.local.get([PREFS_BACKEND_KEY]), {} as Record<string, unknown>);
+    if ((marker as Record<string, unknown>)[PREFS_BACKEND_KEY]) {
+      await safeStorage(() => chrome.storage.local.remove([PREFS_BACKEND_KEY]), undefined);
     }
   } catch (err) {
-    // chrome.storage.sync has hard quotas (8KB per item, 100KB total).
-    // On overflow, persist to local AND mark the backend so the next read
-    // knows to look in local instead of sync.
     const msg = (err as Error)?.message || '';
+    if (msg.includes('Extension context invalidated')) return;
     if (msg.includes('QUOTA') || msg.includes('quota') || msg.includes('MAX_')) {
       console.warn('[fuzzy-translate] sync quota exceeded — switching preferences to chrome.storage.local');
-      await chrome.storage.local.set({ ...payload, [PREFS_BACKEND_KEY]: 'local' });
+      await safeStorage(() => chrome.storage.local.set({ ...payload, [PREFS_BACKEND_KEY]: 'local' }), undefined);
     } else {
       throw err;
     }

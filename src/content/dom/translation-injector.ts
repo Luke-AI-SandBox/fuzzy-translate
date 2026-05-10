@@ -136,8 +136,12 @@ export function injectTranslation(paragraph: ParagraphInfo, status: TranslationS
   // Copy key styles from original element for consistency
   copyStyles(paragraph.element, translationDiv);
 
-  // No spinner in translation element — replace mode uses source-pulse animation,
-  // bilingual mode streams text directly without placeholder.
+  // Add spinner for bilingual mode streaming (hover/full-page)
+  if (currentDisplayMode !== 'replace' && status === 'streaming') {
+    const spinner = document.createElement('span');
+    spinner.className = 'ft-spinner';
+    translationDiv.appendChild(spinner);
+  }
 
   // Mark the original element
   paragraph.element.setAttribute('data-ft-original', baseId);

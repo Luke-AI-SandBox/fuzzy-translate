@@ -30,12 +30,14 @@ const SKIP_CLASS_PATTERNS = /\b(nav|menu|sidebar|footer|header|toolbar|breadcrum
 const SKIP_ID_PATTERNS = /\b(nav|menu|sidebar|footer|header|toolbar|ad|ads|banner)\b/i;
 
 const MIN_TEXT_LENGTH = 20; // Raised from 10 to skip trivial UI labels
-const MAX_PARAGRAPH_LENGTH = 2000;
+const MAX_PARAGRAPH_LENGTH = 5000;
 
 // --- Known SPA content selectors (e.g. Twitter/X, Reddit) ---
 const KNOWN_CONTENT_SELECTORS = [
   '[data-testid="tweetText"]',           // Twitter/X tweet body
   '[data-testid="card.layoutSmall.detail"]',  // Twitter/X link preview
+  '[data-testid="tweet"] [lang]',       // X.com tweet with lang attribute
+  'article [data-testid="tweetText"]',  // X.com nested tweet text
   '[data-test-id="post-content"]',       // Reddit post content
   '[data-click-id="text"]',              // Reddit comment text
   '.tweet-text', '.post-text',           // Legacy

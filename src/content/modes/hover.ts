@@ -16,14 +16,25 @@ let isHoverMode = false;
 let lastHoverTarget: HTMLElement | null = null;
 let configuredKey = 'Control';
 let hoverDisplayMode: HoverDisplayMode = 'inline';
+let hoverKeyPressed = false; // Track if the hover modifier key is currently held
 
 // Map: original paragraph element -> injected translation element
 const paragraphTranslationMap = new Map<HTMLElement, HTMLElement>();
 
 let hoverPrefsListenerBound = false;
 
+/** Check if the right modifier key is currently pressed */
+function isHoverKeyPressed(e: MouseEvent | KeyboardEvent): boolean {
+  if (configuredKey === 'Control') return e.ctrlKey;
+  if (configuredKey === 'Meta') return e.metaKey;
+  if (configuredKey === 'Alt') return e.altKey;
+  if (configuredKey === 'Shift') return e.shiftKey;
+  return false;
+}
+
 export function enableHoverMode(): void {
   isHoverMode = true;
+  hoverKeyPressed = false;
   getPreferences().catch(() => null).then(prefs => {
     if (!prefs) return;
     configuredKey = prefs.hoverKey || 'Control';
@@ -38,13 +49,16 @@ export function enableHoverMode(): void {
   }
   document.addEventListener('mouseover', handleMouseOver);
   document.addEventListener('keydown', handleKeyDown);
+  document.addEventListener('keyup', handleKeyUp);
 }
 
 export function disableHoverMode(): void {
   isHoverMode = false;
+  hoverKeyPressed = false;
   lastHoverTarget = null;
   document.removeEventListener('mouseover', handleMouseOver);
   document.removeEventListener('keydown', handleKeyDown);
+  document.removeEventListener('keyup', handleKeyUp);
   document.querySelectorAll('.ft-translation[data-ft-hover]').forEach(el => el.remove());
   paragraphTranslationMap.clear();
   removeHoverPopover();
@@ -66,18 +80,35 @@ export function toggleHoverMode(): boolean {
 function handleMouseOver(e: MouseEvent): void {
   if (!isHoverMode) return;
   lastHoverTarget = e.target as HTMLElement;
+
+  // If the hover key is currently held (user pressed key then moved mouse), translate immediately
+  if (hoverKeyPressed && lastHoverTarget) {
+    triggerHoverTranslation(lastHoverTarget);
+  }
 }
 
 function handleKeyDown(e: KeyboardEvent): void {
-  if (!isHoverMode || e.key !== configuredKey) return;
+  if (!isHoverMode) return;
+  if (e.key !== configuredKey) return;
   if (e.repeat) return;
 
+  hoverKeyPressed = true;
+
   if (!lastHoverTarget) return;
-  let target = lastHoverTarget;
+  triggerHoverTranslation(lastHoverTarget);
+}
+
+function handleKeyUp(e: KeyboardEvent): void {
+  if (!isHoverMode) return;
+  if (e.key !== configuredKey) return;
+  hoverKeyPressed = false;
+}
+
+/** Central handler: find paragraph from target element and trigger translation */
+function triggerHoverTranslation(target: HTMLElement): void {
   if (target.classList.contains('ft-translation')) return;
 
   // If the user hovered on a replacement element itself, treat it as a restore action
-  // targeting its source (the hidden original)
   if (target.hasAttribute('data-ft-replacement') || target.closest('[data-ft-replacement]')) {
     const replacement = (target.hasAttribute('data-ft-replacement') ? target : target.closest('[data-ft-replacement]')) as HTMLElement;
     const source = replacement.previousElementSibling as HTMLElement | null;
@@ -95,7 +126,6 @@ function handleKeyDown(e: KeyboardEvent): void {
   if (!paragraph) return;
 
   // --- Replace mode: source is hidden with a replacement element as next sibling ---
-  // In-place replace: element's innerHTML was swapped (summary/option/caption etc.)
   if (paragraph.hasAttribute('data-ft-original-html')) {
     const originalHtml = paragraph.getAttribute('data-ft-original-html');
     if (originalHtml !== null) paragraph.innerHTML = originalHtml;
@@ -132,7 +162,27 @@ function handleKeyDown(e: KeyboardEvent): void {
   translateHoverParagraph(paragraph);
 }
 
+// Known X.com / SPA content selectors — same set as paragraph-extractor
+const HOVER_KNOWN_SELECTORS = [
+  '[data-testid="tweetText"]',
+  '[data-testid="tweet"] [lang]',
+  'article [data-testid="tweetText"]',
+];
+
 function findParagraphAncestor(el: HTMLElement): HTMLElement | null {
+  // Check if element or any ancestor matches known SPA content selectors (X.com, etc.)
+  let check: HTMLElement | null = el;
+  while (check && check !== document.body) {
+    for (const sel of HOVER_KNOWN_SELECTORS) {
+      if (check.matches(sel)) {
+        const text = (check.textContent || '').trim();
+        if (text.length >= 2 && text.length <= 5000) return check;
+      }
+    }
+    check = check.parentElement;
+  }
+  console.log('[FT hover] No paragraph ancestor found for', el, 'tag:', el.tagName);
+
   // Leaf-level paragraph tags + interactive UI tags (buttons, labels, links, options).
   // Hover mode is opt-in per element — include UI elements that full-page translation
   // intentionally skips, so the user can explicitly translate buttons/menu items.
@@ -144,7 +194,7 @@ function findParagraphAncestor(el: HTMLElement): HTMLElement | null {
   const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'CODE', 'PRE', 'NOSCRIPT', 'SVG']);
   const LEAF_MIN_LEN = 2;
   const DIV_MIN_LEN = 10;
-  const MAX_LEN = 1500;
+  const MAX_LEN = 5000;
 
   let current: HTMLElement | null = el;
   while (current && current !== document.body) {

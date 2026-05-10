@@ -55,16 +55,19 @@ export function showHoverPopover(
       :host { all: initial; }
       .pv {
         width: ${POPOVER_WIDTH}px;
-        background: var(--glass-bg);
-        backdrop-filter: blur(24px) saturate(160%);
-        -webkit-backdrop-filter: blur(24px) saturate(160%);
-        border: 1px solid var(--glass-border);
+        background: #ffffff;
+        border: 1px solid rgba(0,0,0,0.12);
         border-radius: 14px;
-        box-shadow: 0 16px 40px -12px rgba(20,20,40,0.3), inset 0 1px 0 var(--glass-inner-hl);
-        color: var(--fg);
+        box-shadow: 0 8px 24px -8px rgba(0,0,0,0.12), 0 2px 6px -2px rgba(0,0,0,0.06);
+        color: #1a1a2e;
         font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
         overflow: hidden;
         animation: pv-in 0.18s ease-out;
+      }
+      :host-context([data-ft-theme="dark"]) .pv {
+        background: #1e1e2e;
+        border-color: rgba(255,255,255,0.12);
+        color: #e0e0f0;
       }
       @keyframes pv-in {
         from { opacity: 0; transform: translateY(4px) scale(0.98); }
@@ -123,8 +126,6 @@ export function showHoverPopover(
         font-size: 13px; color: var(--muted); line-height: 1.55;
         margin-bottom: 10px;
         max-height: 80px; overflow: hidden;
-        -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
-        mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
       }
       .tr {
         font-family: "Iowan Old Style", "Hoefler Text", Georgia, serif;
@@ -242,6 +243,7 @@ export function showHoverPopover(
 
   return {
     updateTranslation(chunk: string) {
+      // Remove spinner on first chunk
       const spinner = trEl.querySelector('.ft-spinner');
       if (spinner) spinner.remove();
       trEl.appendChild(document.createTextNode(chunk));
@@ -250,6 +252,9 @@ export function showHoverPopover(
     setComplete() {
       trEl.classList.remove('streaming');
       pillStreaming.classList.add('hidden');
+      // Ensure spinner is gone
+      const spinner = trEl.querySelector('.ft-spinner');
+      if (spinner) spinner.remove();
       const elapsed = Date.now() - startTime;
       metaEl.textContent = `${elapsed} ms · ${tokenCount} tok`;
     },
@@ -257,12 +262,16 @@ export function showHoverPopover(
       trEl.classList.remove('streaming');
       pillStreaming.classList.add('hidden');
       trEl.classList.add('error');
+      trEl.innerHTML = '';
       trEl.textContent = `翻译失败: ${msg}`;
     },
     setCached() {
       trEl.classList.remove('streaming');
       pillStreaming.classList.add('hidden');
       pillCached.classList.add('shown');
+      // Ensure spinner is gone
+      const spinner = trEl.querySelector('.ft-spinner');
+      if (spinner) spinner.remove();
       const elapsed = Date.now() - startTime;
       metaEl.textContent = `${elapsed} ms`;
     },
