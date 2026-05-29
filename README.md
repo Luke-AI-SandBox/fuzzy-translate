@@ -55,7 +55,7 @@ Fuzzy Translate 是一个 Chrome 浏览器扩展，让你使用自己的 AI 模�
 ### 构建
 
 ```bash
-git clone https://github.com/your-username/fuzzy-translate.git
+git clone https://github.com/Luke-AI-SandBox/fuzzy-translate.git
 cd fuzzy-translate
 npm install
 npm run build
