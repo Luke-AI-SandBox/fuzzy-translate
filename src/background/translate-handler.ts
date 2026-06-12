@@ -187,7 +187,6 @@ async function handleBatchTranslation(
         stream: true,
         ...(typeof config.temperature === 'number' ? { temperature: config.temperature } : {}),
         thinking: { type: 'disabled' },
-        reasoning_effort: 'none',
         enable_thinking: false,
       }),
     });

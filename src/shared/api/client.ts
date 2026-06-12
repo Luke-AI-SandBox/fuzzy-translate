@@ -74,7 +74,6 @@ export async function* translateText(
       ...(typeof config.temperature === 'number' ? { temperature: config.temperature } : {}),
       // Disable thinking/reasoning for all providers that support it
       thinking: { type: 'disabled' },           // Anthropic Claude
-      reasoning_effort: 'none',                  // OpenAI o-series
       enable_thinking: false,                    // DeepSeek
     }),
     signal,
